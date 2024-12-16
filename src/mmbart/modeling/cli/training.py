@@ -282,16 +282,10 @@ def main(config: DictConfig):
     model.to(device)
 
     # Evaluate best model
-    test_loader = data_module.test_dataloader(modality="HNMR")
-
+    test_loader = data_module.test_dataloader()
 
     predictions = list()
     ground_truth = list()
-
-    #for batch in test_loader:
-    #    predictions.append(model.generate(batch, n_beams=10))
-    #    ground_truth.extend(batch["target_smiles"])
-    #all_predictions = torch.stack(predictions)
     
     n_beams =10
     decode_method = "custom"

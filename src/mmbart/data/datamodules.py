@@ -2,6 +2,7 @@ from dataclasses import InitVar, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from pathlib import Path
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset, DatasetDict
@@ -412,19 +413,18 @@ class MultiModalDataModule(pl.LightningDataModule):
 
     def test_dataloader(
         self,
-        modality: str,
+        test_idx: Path = None,
     ) -> DataLoader:
         
-        #selected_sample = np.random.randint(
-        #    0, len(self.dataset["test"]), min(3, len(self.dataset["test"]))
-        #)
+        if test_idx is None:
+            #Sample random 10k samples
+            selected_sample = np.random.randint(
+                0, len(self.dataset["test"]), min(10000, len(self.dataset["test"]))
+            )
+        else:
+            with open (test_idx, "rb") as f:
+                selected_sample = np.load(f)
         
-        #with open ("/dccstor/ltlws3emb/multimodal_bart/IR_test_idx.npy", "rb") as f: #IR
-        #with open ("/dccstor/ltlws3emb/multimodal_bart/CNMR_test_idx.npy", "rb") as f: #CNMR
-        with open (f"/dccstor/ltlws3emb/multimodal_bart/{modality}_test_idx.npy", "rb") as f: #HNMR
-            selected_sample = np.load(f)
-        
-        print(f"I AM SELECTING A FIXED TEST SET FOR MODALITY {modality}")
         selected_test_set = self.dataset["test"].select(selected_sample)
 
         test_loader = DataLoader(

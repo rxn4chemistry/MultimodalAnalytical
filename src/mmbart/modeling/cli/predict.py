@@ -281,7 +281,7 @@ def main(config: DictConfig):
     model.to(device)
 
     # Evaluate model
-    test_loader = data_module.test_dataloader(modality="CNMR")
+    test_loader = data_module.test_dataloader(test_idx=Path("./CNMR_test_idx.npy"))
 
     predictions = list()
     ground_truth = list()
