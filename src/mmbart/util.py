@@ -9,8 +9,8 @@ import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import Callback
 
-from multimodal.data.datamodules import MultiModalDataModule
-from multimodal.defaults import DEFAULT_SEED
+from mmbart.data.datamodules import MultiModalDataModule
+from mmbart.defaults import DEFAULT_SEED
 
 # Default model hyperparams
 DEFAULT_D_MODEL = 512

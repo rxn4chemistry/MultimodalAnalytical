@@ -22,20 +22,14 @@ import tqdm
 from omegaconf import DictConfig, OmegaConf
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
-#from tqdm.auto import tqdm
-from transformers.generation.logits_process import LogitsProcessorList
 
-from multimodal.data.data_utils import load_preprocessors
-from multimodal.data.datamodules import MultiModalDataModule
-from multimodal.data.datasets import (  # noqa: F401
-    CNN_1D,
-    MLP3,
-    MLP_Bottleneck,
+from mmbart.data.data_utils import load_preprocessors
+from mmbart.data.datamodules import MultiModalDataModule
+from mmbart.data.datasets import (  # noqa: F401
     build_dataset_multimodal,
 )
-from multimodal.generation.logit_processors import GuidedFormulaProcessor
-from multimodal.modeling.wrapper import HFWrapper
-from multimodal.util import calculate_training_steps, seed_everything
+from mmbart.modeling.wrapper import HFWrapper
+from mmbart.util import calculate_training_steps, seed_everything
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -355,15 +349,13 @@ def main(config: DictConfig):
     save_path = (
         Path(config["working_dir"])
         / config["job_name"]
-        / f"test_data_logits_v7_beam_{n_beams}.pkl"
+        / f"test_data_logits_beam_{n_beams}.pkl"
     )
     with (save_path).open("wb") as save_file:
         pickle.dump(
             {"predictions": predictions, "ground_truth": ground_truth},
             save_file,
         )  # To do: Move away from pickle
-
-    score_molecules(predictions, ground_truth)
 
 if __name__ == "__main__":
     main()

@@ -6,9 +6,9 @@ from datasets import Dataset
 from rdkit import Chem
 from transformers import AutoTokenizer
 
-from multimodal.data.preprocessors import PREPROCESSORS, return_type
-from multimodal.data.tokenizer import build_regex_tokenizer
-from multimodal.defaults import DEFAULT_SAMPLES
+from mmbart.data.preprocessors import PREPROCESSORS, return_type
+from mmbart.data.tokenizer import build_regex_tokenizer
+from mmbart.defaults import DEFAULT_SAMPLES
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

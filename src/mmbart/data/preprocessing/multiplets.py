@@ -7,7 +7,7 @@ import torch
 from datasets import Dataset
 from transformers import AutoTokenizer
 
-from multimodal.data.tokenizer import build_regex_tokenizer
+from mmbart.data.tokenizer import build_regex_tokenizer
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

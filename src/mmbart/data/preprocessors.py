@@ -3,15 +3,15 @@ from typing import Union
 
 from transformers import AutoTokenizer
 
-from multimodal.data.preprocessing.carbon import CarbonPreprocessor
-from multimodal.data.preprocessing.functional_group import FunctionalGroupPreprocessor
-from multimodal.data.preprocessing.msms_number import MSMSNumberPreprocessor
-from multimodal.data.preprocessing.msms_text import MSMSTextPreprocessor
-from multimodal.data.preprocessing.multiplets import MultipletPreprocessor
-from multimodal.data.preprocessing.normalization import NormalisePreprocessor
-from multimodal.data.preprocessing.onehot import OneHotPreprocessor
-from multimodal.data.preprocessing.patches import PatchPreprocessor
-from multimodal.data.preprocessing.text_spectrum import (
+from mmbart.data.preprocessing.carbon import CarbonPreprocessor
+from mmbart.data.preprocessing.functional_group import FunctionalGroupPreprocessor
+from mmbart.data.preprocessing.msms_number import MSMSNumberPreprocessor
+from mmbart.data.preprocessing.msms_text import MSMSTextPreprocessor
+from mmbart.data.preprocessing.multiplets import MultipletPreprocessor
+from mmbart.data.preprocessing.normalization import NormalisePreprocessor
+from mmbart.data.preprocessing.onehot import OneHotPreprocessor
+from mmbart.data.preprocessing.patches import PatchPreprocessor
+from mmbart.data.preprocessing.text_spectrum import (
     PeakPositionalEncodingPreprocessor,
     RunLengthEncodingPreprocessor,
     TextSpectrumPreprocessor,

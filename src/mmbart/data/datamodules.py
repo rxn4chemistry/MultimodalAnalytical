@@ -8,8 +8,8 @@ from datasets import Dataset, DatasetDict
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from multimodal.data.preprocessors import PatchPreprocessor
-from multimodal.defaults import DEFAULT_SAMPLES
+from mmbart.data.preprocessors import PatchPreprocessor
+from mmbart.defaults import DEFAULT_SAMPLES
 
 
 @dataclass

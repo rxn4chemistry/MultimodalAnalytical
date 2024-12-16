@@ -20,7 +20,7 @@ from scipy.ndimage import gaussian_filter1d
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from torch import nn
 
-from multimodal.defaults import (
+from mmbart.defaults import (
     DEFAULT_SEED,
     DEFAULT_TEST_SET_SIZE,
     DEFAULT_VAL_SET_SIZE,

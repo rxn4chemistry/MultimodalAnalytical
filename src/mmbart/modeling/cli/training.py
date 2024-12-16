@@ -16,24 +16,163 @@ import pandas as pd
 import torch
 import tqdm
 from omegaconf import DictConfig, OmegaConf
-from sklearn.metrics import f1_score, mean_absolute_error, mean_squared_error
 from typing import Any, Dict
 
-from multimodal.data.data_utils import load_preprocessors
-from multimodal.data.datamodules import MultiModalDataModule
-from multimodal.data.datasets import (  # noqa: F401
-    CNN_1D,
-    MLP3,
-    MLP_Bottleneck,
+from mmbart.data.data_utils import load_preprocessors
+from mmbart.data.datamodules import MultiModalDataModule
+from mmbart.data.datasets import (  # noqa: F401
     build_dataset_multimodal,
 )
-from multimodal.data.preprocessors import NormalisePreprocessor
-from multimodal.modeling.wrapper import HFWrapper
-from multimodal.trainer.trainer import build_trainer
-from multimodal.util import calculate_training_steps, seed_everything
+
+from mmbart.modeling.wrapper import HFWrapper
+from mmbart.trainer.trainer import build_trainer
+from mmbart.util import calculate_training_steps, seed_everything
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+def calc_sampling_metrics(sampled_smiles, target_smiles, molecules: bool = True):
+        """Calculate sampling metrics for the model
+
+        If sampled_smiles is a List[List[str]] then the following metrics for beam search are calculated (up to the
+        maximum given by the number of elements in the inner lists):
+            - "top_1_accuracy"
+            - "top_5_accuracy"
+            - "top_10_accuracy"
+            - "top_20_accuracy"
+            - "top_50_accuracy"
+        The SMILES strings must be sorted in decreasing order of their predicted likelihood
+
+        If the sampled_smiles is a List[str] then "accuracy" is calculated
+
+        The the number of invalid SMILES "invalid" is also returned (for beam search this is just from the top_1)
+
+        Args:
+            sampled_smiles: SMILES strings produced by decode function,
+            target_smiles: target molecules as canonicalised SMILES strings
+
+        Returns:
+            dict containing results
+        """
+
+        num_sampled = len(sampled_smiles)
+        num_target = len(target_smiles)
+        err_msg = f"The number of sampled and target molecules must be the same, got {num_sampled} and {num_target}"
+        assert num_sampled == num_target, err_msg
+
+        if molecules:
+            mol_targets = [
+                Chem.MolFromSmiles(
+                    smi.replace(" ", "")
+                    .replace("<bos>", "")
+                    .replace("<pad>", "")
+                    .replace("<eos>", "")
+                    .replace(" ", '')
+                )
+                for smi in target_smiles
+            ]
+            canon_targets = [Chem.MolToSmiles(mol) for mol in mol_targets]
+        else:
+            canon_targets = [text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip() for text in target_smiles]
+
+        data_type = type(sampled_smiles[0])
+        if data_type == str:
+            results = _calc_greedy_metrics(sampled_smiles, canon_targets, molecules=molecules)
+        elif data_type == list:
+            results = _calc_beam_metrics(sampled_smiles, canon_targets, molecules=molecules)
+        else:
+            raise TypeError(
+                f"Elements of sampled_smiles must be either a str or a list, got {data_type}"
+            )
+
+        return results
+
+
+def _calc_greedy_metrics(sampled_smiles, target_smiles, molecules: bool = True):
+    if molecules:
+        sampled_mols = [
+            Chem.MolFromSmiles(
+                smi.replace(" ", "")
+                .replace("<bos>", "")
+                .replace("<pad>", "")
+                .replace("<eos>", "")
+                .replace(' ', '')
+            )
+            for smi in sampled_smiles
+        ]
+    else:
+        sampled_mols = [
+            text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in sampled_smiles
+        ]
+    invalid = [mol is None for mol in sampled_mols]
+
+    if molecules:
+        canon_smiles = [
+            "Unknown" if mol is None else Chem.MolToSmiles(mol) for mol in sampled_mols
+        ]
+    else:
+        canon_smiles = sampled_mols
+    correct_smiles = [
+        target_smiles[idx] == smi for idx, smi in enumerate(canon_smiles)
+    ]
+
+    num_correct = sum(correct_smiles)
+    total = len(correct_smiles)
+    num_invalid = sum(invalid)
+    perc_invalid = num_invalid / total
+    accuracy = num_correct / total
+
+    metrics = {"accuracy": accuracy, "invalid": perc_invalid}
+
+    return metrics
+
+def _calc_beam_metrics(sampled_smiles, target_smiles, molecules: bool = True):
+    top_1_samples = [mols[0] for mols in sampled_smiles]
+    top_1_results = _calc_greedy_metrics(top_1_samples, target_smiles)
+
+    metrics = {
+        "top_1_accuracy": top_1_results["accuracy"],
+        "invalid": top_1_results["invalid"],
+    }
+
+    ks = [2, 3, 5, 10, 20, 50]
+    num_samples_list = [k for k in ks if k <= len(sampled_smiles[0])]
+
+    for num_samples in num_samples_list:
+        top_k_correct = []
+        num_mols = len(sampled_smiles)
+
+        for batch_idx, mols in enumerate(sampled_smiles):
+            samples = mols[:num_samples]
+
+            if molecules:
+                samples_mols = [
+                    Chem.MolFromSmiles(
+                        smi.replace(" ", "")
+                        .replace("<bos>", "")
+                        .replace("<pad>", "")
+                        .replace("<eos>", "")
+                        .replace(' ', '')
+                    )
+                    for smi in samples
+                ]
+                samples_smiles = [
+                    "Unknown" if mol is None else Chem.MolToSmiles(mol)
+                    for mol in samples_mols
+                ]
+            else:
+                samples_smiles = [
+                    text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in samples
+                ]
+            correct_smiles = [
+                smi == target_smiles[batch_idx] for smi in samples_smiles
+            ]
+            is_correct = sum(correct_smiles) >= 1
+            top_k_correct.append(is_correct)
+        accuracy = sum(top_k_correct) / num_mols
+        metrics[f"top_{str(num_samples)}_accuracy"] = accuracy
+
+    return metrics
 
 def score_molecules(predictions, ground_truth, n_beams = 10):
     preds = pd.DataFrame({"predictions": predictions, "ground_truth": ground_truth})
@@ -209,63 +348,20 @@ def main(config: DictConfig):
 
             predictions.extend(detokenized_sequences)
             ground_truth.extend(batch["target_smiles"])
-            
+    
+    metrics = calc_sampling_metrics(predictions, ground_truth)
+    logger.info(metrics)       
+    
     save_path = (
         Path(config["working_dir"])
         / config["job_name"]
-        / f"test_data_logits_v7_beam_{n_beams}.pkl"
+        / f"test_data_logits_beam_{n_beams}.pkl"
     )
     with (save_path).open("wb") as save_file:
         pickle.dump(
             {"predictions": predictions, "ground_truth": ground_truth},
             save_file,
         )
-
-    score_molecules(predictions, ground_truth)
-
-    if model_type == "BART":
-        save_path = Path(config["working_dir"]) / config["job_name"] / "test_data.pkl"
-        with (save_path).open("wb") as save_file:
-            pickle.dump(
-                {"predictions": all_predictions, "ground_truth": ground_truth},
-                save_file,
-            )  # To do: Move away from pickle
-
-        metrics = model.score_sequences(all_predictions, ground_truth)  # type: ignore[union-attr]
-        logger.info(metrics)
-
-    elif (
-        False and model_type == "encoder"
-    ):  # No support for encoder only models at the moment
-        save_path = Path(config["working_dir"]) / config["job_name"] / "test_data.pkl"
-        model_predictions = {
-            "predicted_labels": predictions,
-            # "logits": log_lhs,
-            "labels": ground_truth,
-        }
-        with open(save_path, "wb") as f:
-            pickle.dump(model_predictions, f)
-
-        if config["model"]["task"] == "multi_regression":
-            if type(preprocessors[target_modality]) is not NormalisePreprocessor:
-                raise ValueError(
-                    "For multiregression NormalisePreprocessor is required."
-                )
-
-            ground_truth_denorm = preprocessors[target_modality].denormalise(np.array(ground_truth))  # type: ignore[union-attr]
-            label_denorm = preprocessors[target_modality].denormalise(np.array(predictions))  # type: ignore[union-attr]
-
-            mse = mean_squared_error(ground_truth_denorm, label_denorm)
-            mae = mean_absolute_error(ground_truth_denorm, label_denorm)
-            logger.info("MSE: {:.6f}".format(mse))
-            logger.info("MAE: {:.6f}".format(mae))
-        else:
-            f1_micro = f1_score(ground_truth, predictions, average="micro")
-            f1_weighted = f1_score(ground_truth, predictions, average="weighted")
-            logger.info(
-                "F1 Micro: {:.4f}, F1 Weighted: {:.4f}".format(f1_micro, f1_weighted)
-            )
-
 
 if __name__ == "__main__":
     main()

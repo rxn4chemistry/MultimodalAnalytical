@@ -12,8 +12,8 @@ from scipy import interpolate
 from sklearn.cluster import OPTICS, KMeans
 from transformers import AutoTokenizer
 
-from multimodal.data.tokenizer import build_regex_tokenizer
-from multimodal.defaults import DEFAULT_SAMPLES
+from mmbart.data.tokenizer import build_regex_tokenizer
+from mmbart.defaults import DEFAULT_SAMPLES
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

@@ -20,7 +20,7 @@ from transformers.modeling_outputs import BaseModelOutput, Seq2SeqModelOutput
 
 from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
 from .custom_modeling import CustomBartForConditionalGeneration
-from multimodal.modeling.decoder import DecodeSampler
+from mmbart.modeling.decoder import DecodeSampler
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 

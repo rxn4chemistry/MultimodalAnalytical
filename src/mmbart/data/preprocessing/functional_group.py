@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 
-from multimodal.defaults import DEFAULT_FUNC_GROUPS
+from mmbart.defaults import DEFAULT_FUNC_GROUPS
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -33,6 +33,6 @@ class FunctionalGroupPreprocessor:
 
     # Defer import of get_functional_groups to avoid circular import; Better solution may be required.
     def __call__(self, smiles: List[str]) -> np.ndarray:
-        from multimodal.data.data_utils import get_functional_groups
+        from mmbart.data.data_utils import get_functional_groups
 
         return get_functional_groups(smiles, self.functional_groups)
