@@ -1,0 +1,24 @@
+Formula:
+  type: text
+  column: formula
+  target: False
+  tokenizer: formula
+  tokenizer_regex: ([A-Z]{1}[a-z]?[0-9]*)
+Pos_MSMS_0:
+  type: msms
+  column: energy_0_positive
+  target: False
+Pos_MSMS_1:
+  type: msms
+  column: energy_1_positive
+  target: False
+Pos_MSMS_2:
+  type: msms
+  column: energy_2_positive
+  target: False
+Smiles:
+  type: text
+  column: smiles
+  target: True
+  tokenizer: smiles
+  tokenizer_regex: (\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])

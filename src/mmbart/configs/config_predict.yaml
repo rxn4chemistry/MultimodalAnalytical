@@ -1,0 +1,48 @@
+# @package _global_
+
+# Define job name
+job_name: test_nmr_vector
+
+# Working directory where everything is stored. Needs to be overriten depending on use
+working_dir: /dccstor/ltlws3emb/multimodal_bart/runs
+
+# Data path
+data_path: /dccstor/ltlws3emb/analytical_data/data/simulated/1H_NMR
+preprocessor_path: null
+augment_names: null
+augment_path: null
+augment_fraction: 0.0
+finetuning: False
+func_group_split: False
+smiles_split: False
+molecules: True
+cv_split: 0 
+
+model:
+  model_checkpoint_path: /dccstor/ltlws3emb/multimodal_bart/runs/train_custom_residualfirst_hnmr_vector_1e-3/version_0/checkpoints/last.ckpt
+# Trainer
+# TODO: convert trainer into config group with choice pl vs hf
+trainer:
+  log_dir: ${working_dir}
+  task: ${job_name}
+  epochs: 60
+  acc_batches: 4
+  clip_grad: 1.0
+  limit_val_batches: 1.0
+
+defaults:
+  - _self_
+  # Data/Embedding type can be selected
+  - data: h_nmr/hnmr_vector # adding a list of modalities here raises hydra error
+
+  - augment_model: default
+
+  - model:
+      - custom_hf_bart # option "encoder" gives error keynotfound "n_features"
+
+  - hydra: default
+
+  - debug: null
+
+
+smiles: False

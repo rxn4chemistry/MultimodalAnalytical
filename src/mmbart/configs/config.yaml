@@ -1,0 +1,39 @@
+# Define job name
+job_name: ???
+
+# Working directory where everything is stored. Needs to be changed depending on use
+working_dir: /dccstor/ltlws3emb/multimodal_bart/runs
+
+# Hydra settings to define directory where data goes
+hydra:
+  run:
+    dir: ${working_dir}/${job_name}
+
+# Data/Embedding type can be selected
+defaults:
+  - data:
+    - ir_patches
+    - ir_patches_enc
+    - ir_text
+    - ir_text_enc
+    - ir_peak_pos
+    - ir_peak_pos_enc
+    
+  - model:
+    - bart
+    - encoder  
+
+# Data path
+data_path: /dccstor/analytical/NMR/1H/1H_processed
+cv_split: 0
+
+molecules: False
+test_only: False
+
+trainer:
+  log_dir: ${working_dir}
+  task: ${job_name}
+  epochs: 60
+  acc_batches: 4
+  clip_grad: 1.0
+  limit_val_batches: 1.0

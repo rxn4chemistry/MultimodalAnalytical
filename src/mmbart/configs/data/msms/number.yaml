@@ -1,0 +1,12 @@
+MSMS:
+  type: msms_number
+  column: msms_iceberg__[M+H]+
+  encoding_type: linear
+  target: False
+Smiles:
+  type: text
+  column: smiles
+  target: True
+  tokenizer: smiles
+  tokenizer_regex: (\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])
+

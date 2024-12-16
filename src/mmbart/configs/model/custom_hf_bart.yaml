@@ -1,0 +1,21 @@
+model_type: 'CustomBartForConditionalGeneration'
+model_name: 'facebook/bart-base'
+d_model: 512 
+num_heads: 8 
+encoder_attention_heads: 8 
+decoder_attention_heads: 8
+encoder_layers: 6
+decoder_layers: 6
+encoder_ffn_dim: 2048
+decoder_ffn_dim: 2048
+multimodal_norm: True
+
+optimiser: adam
+lr: 1e-4
+weight_decay: 0.0
+adam_beta1: 0.9
+adam_beta2: 0.999
+
+model_checkpoint_path: null
+batch_size: 128
+cv_split: 0
