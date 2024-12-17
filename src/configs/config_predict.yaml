@@ -4,10 +4,10 @@
 job_name: test
 
 # Working directory where everything is stored. Needs to be overriten depending on use
-working_dir: /dccstor/ltlws3emb/multimodal_bart/runs
+working_dir: /Users/gga/Documents/code/multimodal-bart/
 
 # Data path
-data_path: /dccstor/ltlws3emb/analytical_data/data/simulated/IR
+data_path: /Users/gga/Documents/code/multimodal-bart/IR
 preprocessor_path: null
 augment_names: null
 augment_path: null
@@ -18,6 +18,8 @@ smiles_split: False
 molecules: True
 cv_split: 0 
 
+model:
+  model_checkpoint_path: null
 # Trainer
 # TODO: convert trainer into config group with choice pl vs hf
 trainer:
@@ -32,8 +34,6 @@ defaults:
   - _self_
   # Data/Embedding type can be selected
   - data: ir/patches # adding a list of modalities here raises hydra error
-
-  - augment_model: default
 
   - model:
       - custom_hf_bart # option "encoder" gives error keynotfound "n_features"

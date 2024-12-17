@@ -16,6 +16,7 @@ import pandas as pd
 import torch
 import tqdm
 from omegaconf import DictConfig, OmegaConf
+from rdkit import Chem
 from typing import Any, Dict
 
 from mmbart.data.data_utils import load_preprocessors

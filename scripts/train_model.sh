@@ -16,7 +16,7 @@ mkdir -p ${top_dir}/${exp_dir}
 jbsub -queue x86_24h -cores 7+1 -mem 60g \
         -out ${top_dir}/${exp_dir}/out.txt \
         -err ${top_dir}/${exp_dir}/err.txt \
-        python /dccstor/ltlws3emb/multimodal_bart/src/multimodal/cli/train_multimodal.py\
+        python ./src/mmbart/modeling/cli/training.py\
         job_name=${exp_dir} \
         data_path=/dccstor/ltlws3emb/analytical_data/data/simulated/1H_NMR \
         data=h_nmr/${modality} \
