@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -21,6 +22,8 @@ class MultiModalDataCollator:
 
     dataset: InitVar[DatasetDict]
 
+    mixture: bool = False
+    predict_mode: str = "single"
     padding: bool = True
     max_source_length: Optional[Dict[str, int]] = None
     max_target_length: Optional[int] = None
@@ -112,6 +115,55 @@ class MultiModalDataCollator:
                 max_target_length = len(tokenized_sample)
 
         return max_target_length + 5
+    
+    def mixture_batch(self, batch_dict: Dict[str, Any], predict_mode: str="single") -> Dict[str, Any]:
+        """ 
+        This function creates a batch for the mixtures for different decoding_type.
+
+        Parameters
+        -------
+        
+        batch_dict : Dict[str, Any]
+            The input dict that has as key the modality and as value the samples.
+
+        predict_mode : str
+            The decoding type, can be either single or mixture. 
+            When predict_mode = single, each mixture in the batch is splitted into single compounds to predict.
+            When predict_mode = multiple, # finish this documentation.
+            Defaults value is **single**.
+
+        Returns
+        -------
+
+        dict
+            a dictionary with the same keys as the input dict, but with rearranged values in single or multiple input per modality.
+        """
+        batch_dict_new = defaultdict(list)
+
+        not_repeated = list()
+        batch_size = len(batch_dict[list(batch_dict.keys())[0]])
+
+        if predict_mode == "single": # this makes the batch_size n_compunds*batch_size, since it passes compunds one by one.
+            for modality in batch_dict.keys():
+                if not all(isinstance(el, str) for el in batch_dict[modality]): # this because the spectra is unique, while in the dataset smiles and molecular formula have multiple strings beaing a mixture.
+                    not_repeated.append(modality)
+
+                if modality not in not_repeated:
+                    for el in batch_dict[modality]:
+                        batch_dict_new[modality].extend(el.split(" "))
+                
+
+            n_compunds = max(len(value) for value in batch_dict_new.values()) // batch_size
+
+            for modality in not_repeated:
+                for el in batch_dict[modality]:
+                    batch_dict_new[modality].extend([el] * n_compunds) # repeat the elements (they should be array, this is for the spectra field) n_compunds times
+                
+        else:
+            raise ValueError("Invalid predict mode. Predict mode should be in ['single', 'multiple']")
+        
+        return batch_dict_new
+
 
     def __call__(
         self, batch: List[Dict[str, Any]], return_tensors=None
@@ -122,6 +174,9 @@ class MultiModalDataCollator:
         batch_dict = {
             k: [batch[i][k] for i in range(len(batch))] for k, v in batch[0].items()
         }
+
+        if self.mixture:
+            batch_dict = self.mixture_batch(batch_dict, self.predict_mode)
 
         # Prepare Encoder and target
         input_dict, global_input_attention_mask = self.prepare_encoder_input(
@@ -364,6 +419,8 @@ class MultiModalDataModule(pl.LightningDataModule):
         max_source_length: Optional[int] = None,
         max_target_length: Optional[int] = None,
         num_workers: int = 7,
+        mixture: bool = False,
+        predict_mode: str = "single"
     ):
         super().__init__()
 
@@ -375,6 +432,8 @@ class MultiModalDataModule(pl.LightningDataModule):
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.num_workers = num_workers
+        self.mixture = mixture
+        self.predict_mode = predict_mode
 
         self.collator = self.get_multimodal_data_collator()
 
@@ -444,5 +503,7 @@ class MultiModalDataModule(pl.LightningDataModule):
             data_config=self.data_config,
             dataset=self.dataset,
             model_type=self.model_type,
+            mixture=self.mixture, 
+            predict_mode=self.predict_mode
         )
         return data_collator

@@ -40,5 +40,8 @@ defaults:
 
   - debug: null
 
+predict_mode: single
+
+mixture: False
 
 smiles: False
