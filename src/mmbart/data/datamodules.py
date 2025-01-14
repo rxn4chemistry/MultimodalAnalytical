@@ -22,8 +22,7 @@ class MultiModalDataCollator:
 
     dataset: InitVar[DatasetDict]
 
-    mixture: bool = False
-    predict_mode: str = "single"
+    mixture: str = None
     padding: bool = True
     max_source_length: Optional[Dict[str, int]] = None
     max_target_length: Optional[int] = None
@@ -116,21 +115,22 @@ class MultiModalDataCollator:
 
         return max_target_length + 5
     
-    def mixture_batch(self, batch_dict: Dict[str, Any], predict_mode: str="single") -> Dict[str, Any]:
+    def mixture_batch(self, batch_dict: Dict[str, Any]) -> Dict[str, Any]:
         """ 
-        This function creates a batch for the mixtures for different decoding_type.
+        This function creates a batch for the mixtures for different `mixture`.
+        The variable `mixture` can be either single or mixture. 
+        When 
+        - `mixture = single`, each mixture in the batch is splitted into single compounds to predict.
+        - `mixture = multiple`, # finish this documentation.
+            
+        Default value is `single`.
 
         Parameters
         -------
         
         batch_dict : Dict[str, Any]
             The input dict that has as key the modality and as value the samples.
-
-        predict_mode : str
-            The decoding type, can be either single or mixture. 
-            When predict_mode = single, each mixture in the batch is splitted into single compounds to predict.
-            When predict_mode = multiple, # finish this documentation.
-            Defaults value is **single**.
+ 
 
         Returns
         -------
@@ -143,7 +143,7 @@ class MultiModalDataCollator:
         not_repeated = list()
         batch_size = len(batch_dict[list(batch_dict.keys())[0]])
 
-        if predict_mode == "single": # this makes the batch_size n_compunds*batch_size, since it passes compunds one by one.
+        if self.mixture == "single": # this makes the batch_size n_compunds*batch_size, since it passes compunds one by one.
             for modality in batch_dict.keys():
                 if not all(isinstance(el, str) for el in batch_dict[modality]): # this because the spectra is unique, while in the dataset smiles and molecular formula have multiple strings beaing a mixture.
                     not_repeated.append(modality)
@@ -176,7 +176,7 @@ class MultiModalDataCollator:
         }
 
         if self.mixture:
-            batch_dict = self.mixture_batch(batch_dict, self.predict_mode)
+            batch_dict = self.mixture_batch(batch_dict)
 
         # Prepare Encoder and target
         input_dict, global_input_attention_mask = self.prepare_encoder_input(
@@ -419,8 +419,7 @@ class MultiModalDataModule(pl.LightningDataModule):
         max_source_length: Optional[int] = None,
         max_target_length: Optional[int] = None,
         num_workers: int = 7,
-        mixture: bool = False,
-        predict_mode: str = "single"
+        mixture: str = None,
     ):
         super().__init__()
 
@@ -433,7 +432,6 @@ class MultiModalDataModule(pl.LightningDataModule):
         self.max_target_length = max_target_length
         self.num_workers = num_workers
         self.mixture = mixture
-        self.predict_mode = predict_mode
 
         self.collator = self.get_multimodal_data_collator()
 
@@ -504,6 +502,5 @@ class MultiModalDataModule(pl.LightningDataModule):
             dataset=self.dataset,
             model_type=self.model_type,
             mixture=self.mixture, 
-            predict_mode=self.predict_mode
         )
         return data_collator

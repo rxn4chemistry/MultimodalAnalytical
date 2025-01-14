@@ -243,7 +243,6 @@ def main(config: DictConfig):
     model_type = config["model"]["model_type"]
     batch_size = config["model"]["batch_size"]
     mixture = config["mixture"]
-    predict_mode = config["predict_mode"]
 
     data_module = MultiModalDataModule(
         dataset=dataset,
@@ -252,7 +251,6 @@ def main(config: DictConfig):
         model_type=model_type,
         batch_size=batch_size,
         mixture=mixture,
-        predict_mode=predict_mode,
     )
     target_modality = data_module.collator.target_modality
     logging.info("Build Datamodule")
