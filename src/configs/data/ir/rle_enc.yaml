@@ -1,0 +1,13 @@
+IR:
+  type: run_length_encoding
+  column: spectra
+  target: False
+  spectrum_tokens_x: 400
+  spectrum_tokens_y: 100
+  spectrum_to_text_x: run_length_encoding
+  spectrum_to_text_y: integer
+Smiles:
+  type: functional_group
+  column: smiles
+  target: True
+  group_definitions: 'default'

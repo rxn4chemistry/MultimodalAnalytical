@@ -1,0 +1,24 @@
+---
+os: linux
+dist: xenial
+
+language: python
+python:
+  - 3.12
+
+before_install:
+  - pip install uv
+install:
+  - uv pip install -e ".[dev]"
+  - uv pip install -e ".[modeling]"
+  - uv pip install -e ".[data_analysis]".
+script:
+  # styling (linting)
+  - uv run ruff check .
+  # static typing
+  - uv run mypy .
+  # test suite
+  - uv run pytest -sv --cov=mmbart tests
+jobs:
+  include:
+    - python: 3.12 # in case of single test job we add it here

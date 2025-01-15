@@ -1,0 +1,3 @@
+# Hydra settings to define directory where data goes
+run:
+  dir: ${working_dir}/${job_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
