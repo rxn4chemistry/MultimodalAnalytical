@@ -1512,7 +1512,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=2.8.1" },
     { name = "python-dotenv", marker = "extra == 'data-analysis'" },
     { name = "pytorch-lightning", specifier = ">=2.1.0" },
-    { name = "rdkit", specifier = ">=2023.3.3" },
+    { name = "rdkit", specifier = ">2024.3" },
     { name = "regex", specifier = ">=2023.8.8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7.4" },
     { name = "scikit-learn", specifier = ">=1.3.2" },
