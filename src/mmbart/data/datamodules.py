@@ -1,9 +1,9 @@
 from collections import defaultdict
 from dataclasses import InitVar, dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from pathlib import Path
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset, DatasetDict
@@ -22,7 +22,7 @@ class MultiModalDataCollator:
 
     dataset: InitVar[DatasetDict]
 
-    mixture: str = None
+    mixture: Optional[str] = None
     padding: bool = True
     max_source_length: Optional[Dict[str, int]] = None
     max_target_length: Optional[int] = None
@@ -116,10 +116,11 @@ class MultiModalDataCollator:
         return max_target_length + 5
     
     def mixture_batch(self, batch_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """ 
+        """
         This function creates a batch for the mixtures for different `mixture`.
-        The variable `mixture` can be either single or mixture. 
-        When 
+        The variable `mixture` can be either single or mixture.
+
+        When
         - `mixture = single`, each mixture in the batch is splitted into single compounds to predict.
         - `mixture = multiple`, # finish this documentation.
             
@@ -419,7 +420,7 @@ class MultiModalDataModule(pl.LightningDataModule):
         max_source_length: Optional[int] = None,
         max_target_length: Optional[int] = None,
         num_workers: int = 7,
-        mixture: str = None,
+        mixture: Optional[str] = None,
     ):
         super().__init__()
 
@@ -470,7 +471,7 @@ class MultiModalDataModule(pl.LightningDataModule):
 
     def test_dataloader(
         self,
-        test_idx: Path = None,
+        test_idx: Optional[Path] = None,
     ) -> DataLoader:
         
         if test_idx is None:
@@ -479,7 +480,7 @@ class MultiModalDataModule(pl.LightningDataModule):
                 0, len(self.dataset["test"]), min(10000, len(self.dataset["test"]))
             )
         else:
-            with open (test_idx, "rb") as f:
+            with test_idx.open("rb") as f:
                 selected_sample = np.load(f)
         
         selected_test_set = self.dataset["test"].select(selected_sample)
@@ -501,6 +502,6 @@ class MultiModalDataModule(pl.LightningDataModule):
             data_config=self.data_config,
             dataset=self.dataset,
             model_type=self.model_type,
-            mixture=self.mixture, 
+            mixture=self.mixture,
         )
         return data_collator

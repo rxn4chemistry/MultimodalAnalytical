@@ -164,7 +164,7 @@ class PositionalEncoding(nn.Module):
         self.max_seq_len = max_seq_len
         self.register_buffer("pos_enc", self._positional_encs())
 
-    def forward(self, inputs: torch.Tensor, *args) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor, *args) -> torch.Tensor: # noqa: ARG002
         """Given an input returns a sinusoidal positional encoding.
         Args:
             input: tensor

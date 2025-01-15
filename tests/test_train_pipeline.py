@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from click.testing import CliRunner
+
 from mmbart.modeling.cli.training import execute_training_pipeline
 
 logger = logging.getLogger(__name__)

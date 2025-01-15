@@ -394,7 +394,7 @@ class DecodeSampler:
 
         return sorted_mols, sorted_lls
 
-    def calc_sampling_metrics(self, sampled_smiles, target_smiles, molecules: bool = True):
+    def calc_sampling_metrics(self, sampled_smiles, target_smiles, molecules: bool = True): # noqa: ARG002
         """Calculate sampling metrics for the model
 
         If sampled_smiles is a List[List[str]] then the following metrics for beam search are calculated (up to the
@@ -439,9 +439,9 @@ class DecodeSampler:
             canon_targets = [text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip() for text in target_smiles]
 
         data_type = type(sampled_smiles[0])
-        if data_type == str:
+        if isinstance(data_type, str):
             results = DecodeSampler._calc_greedy_metrics(sampled_smiles, canon_targets, molecules=self.molecules)
-        elif data_type == list:
+        elif isinstance(data_type, list):
             results = DecodeSampler._calc_beam_metrics(sampled_smiles, canon_targets, molecules=self.molecules)
         else:
             raise TypeError(

@@ -1,9 +1,9 @@
-from typing import Any, Dict, List, Optional, Union, Callable, Tuple
 from functools import partial
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.nn import functional as F
 from rdkit import Chem
 from torch import nn
 from torch.optim.lr_scheduler import OneCycleLR
@@ -12,15 +12,16 @@ from transformers import (
     AutoTokenizer,
     BartForConditionalGeneration,
     GenerationConfig,
+    PreTrainedModel,
     T5ForConditionalGeneration,
-    PreTrainedModel
 )
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqModelOutput
 
-from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
-from .custom_modeling import CustomBartForConditionalGeneration
 from mmbart.modeling.decoder import DecodeSampler
+
+from .custom_modeling import CustomBartForConditionalGeneration
+from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 
@@ -350,9 +351,9 @@ class HFWrapper(pl.LightningModule):
         self,
         batch: Dict[str, Any],
         n_beams: int = 1,
-        sampling_alg: str = "beam",
-        logits_processor: Optional[LogitsProcessor] = None,
-    ) -> torch.Tensor:
+        sampling_alg: str = "beam", # noqa: ARG002
+        logits_processor: Optional[LogitsProcessor] = None, # noqa: ARG002
+    ) -> Tuple[List[str], List[Any]]:
         """Use same decoding strategy as BART in Open-source code repo.
         Args:
             batch: batch containing input, mask, etc.
@@ -522,7 +523,7 @@ class HFWrapper(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Any]:
+    def validation_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Any]: # noqa: ARG002
         """Validation step implementation for pytorch lightning.
         Args:
             batch: batch containing input, mask, etc.
@@ -575,7 +576,7 @@ class HFWrapper(pl.LightningModule):
         self._log_dict(avg_outputs)
         self.validation_step_outputs = list()
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx): # noqa: ARG002
         """Test step implementation for pytorch lightning.
         Args:
             batch: batch containing input, mask, etc.
@@ -616,7 +617,7 @@ class HFWrapper(pl.LightningModule):
             for key in complete_dict.keys():
                 complete_dict[key].append(coll[key])
 
-        avg_dict = {key: sum(l) / len(l) for key, l in complete_dict.items()}
+        avg_dict = {key: sum(metric) / len(metric) for key, metric in complete_dict.items()}
         return avg_dict
 
     def _log_dict(self, coll):

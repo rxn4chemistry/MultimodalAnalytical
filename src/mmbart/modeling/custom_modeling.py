@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: ignore-errors
+
 """PyTorch BART model."""
 
 import copy
@@ -23,7 +25,6 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-
 from transformers.activations import ACT2FN
 from transformers.generation import GenerationMixin
 from transformers.modeling_attn_mask_utils import (
@@ -42,6 +43,7 @@ from transformers.modeling_outputs import (
     Seq2SeqSequenceClassifierOutput,
 )
 from transformers.modeling_utils import PreTrainedModel
+from transformers.models.bart.configuration_bart import BartConfig
 from transformers.utils import (
     add_code_sample_docstrings,
     add_end_docstrings,
@@ -52,8 +54,6 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from transformers.models.bart.configuration_bart import BartConfig
-
 
 if is_flash_attn_2_available():
     from transformers.modeling_flash_attention_utils import _flash_attention_forward
@@ -312,7 +312,7 @@ class BartFlashAttention2(BartAttention):
         key_value_states: Optional[torch.Tensor] = None,
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.Tensor] = None,
-        layer_head_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None, # noqa: ARG002
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # BartFlashAttention2 attention does not support output_attentions
@@ -782,7 +782,7 @@ class BartPreTrainedModel(PreTrainedModel):
 
 
 class PretrainedBartModel(BartPreTrainedModel):
-    def __init_subclass__(self):
+    def __init_subclass__(cls):
         warnings.warn(
             "The class `PretrainedBartModel` has been depreciated, please use `BartPreTrainedModel` instead.",
             FutureWarning,
@@ -790,7 +790,7 @@ class PretrainedBartModel(BartPreTrainedModel):
 
 
 class BartPretrainedModel(BartPreTrainedModel):
-    def __init_subclass__(self):
+    def __init_subclass__(cls):
         warnings.warn(
             "The class `PretrainedBartModel` has been depreciated, please use `BartPreTrainedModel` instead.",
             FutureWarning,

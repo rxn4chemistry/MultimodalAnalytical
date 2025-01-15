@@ -37,7 +37,7 @@ class MultipletPreprocessor:
 
         self.tokenizer = build_regex_tokenizer(
             processed_multiplets,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
 
@@ -163,7 +163,7 @@ class MultipletPreprocessor:
                 split_js = list(filter(None, split_js))
 
                 if encoding == "text":
-                    processed_js = ["{:.2f}".format(float(j)) for j in split_js]
+                    processed_js = [f"{float(j):.2f}" for j in split_js]
                     formatted_js = "J " + " ".join(processed_js)
 
                 elif encoding == "numerical_encoding":
