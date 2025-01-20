@@ -32,7 +32,7 @@ class CarbonPreprocessor:
 
         self.tokenizer = build_regex_tokenizer(
             processed_carbon,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
 

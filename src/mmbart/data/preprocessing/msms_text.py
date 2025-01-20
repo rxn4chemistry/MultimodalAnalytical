@@ -28,7 +28,7 @@ class MSMSTextPreprocessor:
 
         self.tokenizer = build_regex_tokenizer(
             processed_msms,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
 
@@ -56,9 +56,7 @@ class MSMSTextPreprocessor:
             for peak in msms:
                 if peak[1] < 1:
                     continue
-                msms_string = msms_string + "{:.1f} {:.1f} ".format(
-                    round(peak[0], 1), round(peak[1], 1)
-                )
+                msms_string = msms_string + f"{round(peak[0], 1):.1f} {round(peak[1], 1):.1f} "
 
             msms_string = msms_string.strip()
             processed_msms.append(msms_string)

@@ -57,7 +57,7 @@ class OptLRMonitor(Callback):
     def __init__(self):
         super().__init__()
 
-    def on_train_batch_start(self, trainer, *args, **kwargs):
+    def on_train_batch_start(self, trainer, *args, **kwargs): # noqa: ARG002
         # Only support one optimizer
         opt = trainer.optimizers[0]
 

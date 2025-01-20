@@ -80,7 +80,7 @@ class TextSpectrumPreprocessor:
 
         self.tokenizer = build_regex_tokenizer(
             combined_formula_spectra,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
         longest_sequence = max(combined_formula_spectra, key=len)
@@ -483,7 +483,7 @@ class RunLengthEncodingPreprocessor(TextSpectrumPreprocessor):
 
         self.tokenizer = build_regex_tokenizer(
             run_length_encodings,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
 
@@ -539,14 +539,14 @@ class PeakPositionalEncodingPreprocessor(TextSpectrumPreprocessor):
         self.processing_parameters = dict()
         self.initialise_x_processors(spectra, self.spectrum_tokens_x)
 
-        processed_spectra_x, indices = self.process_spectra_x(spectra)
+        processed_spectra_x, _ = self.process_spectra_x(spectra)
         self.initialise_y_processors(processed_spectra_x, self.spectrum_tokens_y)
 
         processed_spectra, _ = self.process_spectra(spectra)
 
         self.tokenizer = build_regex_tokenizer(
             processed_spectra,
-            regex_string=f"(\s)",
+            regex_string="(\s)",
             tokenizer_behaviour="removed",
         )
 
@@ -592,22 +592,22 @@ class PeakPositionalEncodingPreprocessor(TextSpectrumPreprocessor):
                 "top_variance_index"
             ].tolist()
 
-            token_indices.insert(0, min(token_indices) - 1)
+            token_indices.insert(0, min(token_indices) - 1) # type: ignore
 
             end_indices = list(
                 range(
-                    max(token_indices) + 1,
-                    max(token_indices)
-                    + (self.max_sequence_length - len(token_indices))
+                    max(token_indices) + 1, # type: ignore
+                    max(token_indices) # type: ignore
+                    + (self.max_sequence_length - len(token_indices)) # type: ignore
                     + 1,
                     1,
                 )
             )
-            token_indices.extend(end_indices)
+            token_indices.extend(end_indices) # type: ignore
 
             # Shape to batch_size * sequence_length
             batch_size = len(spectra)
-            token_indices = [token_indices.copy() for _ in range(batch_size)]
+            token_indices = [token_indices.copy() for _ in range(batch_size)] # type: ignore
 
         tokenized_input["indices"] = token_indices
 

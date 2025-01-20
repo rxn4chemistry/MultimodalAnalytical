@@ -40,5 +40,6 @@ defaults:
 
   - debug: null
 
+mixture: null
 
 smiles: False

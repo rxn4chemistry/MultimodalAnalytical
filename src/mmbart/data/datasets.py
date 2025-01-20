@@ -1,4 +1,3 @@
-import os
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -72,7 +71,7 @@ functional_groups = {
 }
 
 
-class MLP_Bottleneck(nn.Module):
+class MLP_Bottleneck(nn.Module): # noqa: N801
     def __init__(
         self,
         in_dim: int,
@@ -130,7 +129,7 @@ class MLP_Bottleneck(nn.Module):
             raise ValueError(f"{self.final_activation}: Unknown Activation function.")
 
 
-class CNN_1D(nn.Module):
+class CNN_1D(nn.Module): # noqa: N801
 
     def __init__(self, final_activation: str = "exp"):
 
@@ -274,7 +273,7 @@ class RealSpecAugmentation:
         spec = np.concatenate((np.zeros(125), spec, np.zeros(41)))
         return spec
 
-    def process_batch(self, batch, remove_stereo: bool = True):
+    def process_batch(self, batch, remove_stereo: bool = True): # noqa: ARG002
 
         preprocessed_spectra = list()
 
@@ -633,7 +632,7 @@ def build_dataset_multimodal(
     augment_fraction: float = 0.0,
     augment_model_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
-    if not os.path.isdir(data_path):
+    if not data_path.is_dir():
         raise ValueError(
             "Data path must specify path to directory containing the dataset files as parqet."
         )

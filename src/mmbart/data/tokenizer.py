@@ -31,7 +31,7 @@ def build_regex_tokenizer(
     eos_token_id = tok.token_to_id("<eos>")
     bos_token_id = tok.token_to_id("<bos>")
     tok.post_processor = processors.TemplateProcessing(
-        single=f"<bos>:0 $A:0 <eos>:0",
+        single="<bos>:0 $A:0 <eos>:0",
         special_tokens=[
             ("<bos>", bos_token_id),
             ("<eos>", eos_token_id),

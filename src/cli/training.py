@@ -11,20 +11,17 @@ import pickle
 from pathlib import Path
 
 import hydra
-import numpy as np
 import pandas as pd
 import torch
 import tqdm
 from omegaconf import DictConfig, OmegaConf
 from rdkit import Chem
-from typing import Any, Dict
 
 from mmbart.data.data_utils import load_preprocessors
 from mmbart.data.datamodules import MultiModalDataModule
 from mmbart.data.datasets import (  # noqa: F401
-    build_dataset_multimodal,
+        build_dataset_multimodal,
 )
-
 from mmbart.modeling.wrapper import HFWrapper
 from mmbart.trainer.trainer import build_trainer
 from mmbart.util import calculate_training_steps, seed_everything
@@ -77,9 +74,9 @@ def calc_sampling_metrics(sampled_smiles, target_smiles, molecules: bool = True)
             canon_targets = [text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip() for text in target_smiles]
 
         data_type = type(sampled_smiles[0])
-        if data_type == str:
+        if isinstance(data_type, str):
             results = _calc_greedy_metrics(sampled_smiles, canon_targets, molecules=molecules)
-        elif data_type == list:
+        elif isinstance(data_type, list):
             results = _calc_beam_metrics(sampled_smiles, canon_targets, molecules=molecules)
         else:
             raise TypeError(
@@ -101,18 +98,18 @@ def _calc_greedy_metrics(sampled_smiles, target_smiles, molecules: bool = True):
             )
             for smi in sampled_smiles
         ]
-    else:
-        sampled_mols = [
-            text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in sampled_smiles
-        ]
-    invalid = [mol is None for mol in sampled_mols]
-
-    if molecules:
         canon_smiles = [
             "Unknown" if mol is None else Chem.MolToSmiles(mol) for mol in sampled_mols
         ]
+        invalid = [mol is None for mol in sampled_mols]
     else:
-        canon_smiles = sampled_mols
+        sampled_text = [
+            text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in sampled_smiles
+        ]
+        canon_smiles = sampled_text
+        invalid = [False] * len(sampled_text)
+
+        
     correct_smiles = [
         target_smiles[idx] == smi for idx, smi in enumerate(canon_smiles)
     ]
@@ -235,13 +232,14 @@ def main(config: DictConfig):
         data_config, preprocessors = pd.read_pickle(preprocessor_path)
     else:
         data_config, preprocessors = load_preprocessors(dataset["train"], data_config)
-        with open(preprocessor_path, "wb") as f:
+        with preprocessor_path.open("wb") as f:
             pickle.dump((data_config, preprocessors), f)
     logging.info("Build preprocessors")
 
     # Load datamodule
     model_type = config["model"]["model_type"]
     batch_size = config["model"]["batch_size"]
+    mixture = config["mixture"]
 
     data_module = MultiModalDataModule(
         dataset=dataset,
@@ -249,6 +247,7 @@ def main(config: DictConfig):
         data_config=data_config,
         model_type=model_type,
         batch_size=batch_size,
+        mixture=mixture,
     )
     target_modality = data_module.collator.target_modality
     logging.info("Build Datamodule")
@@ -345,7 +344,7 @@ def main(config: DictConfig):
             ground_truth.extend(batch["target_smiles"])
     
     metrics = calc_sampling_metrics(predictions, ground_truth)
-    logger.info(metrics)       
+    logger.info(metrics)
     
     save_path = (
         Path(config["working_dir"])
