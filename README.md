@@ -1,5 +1,14 @@
 # multimodal-bart
 
+## Code for ???
+
+## Usage
+To run the code the following fields need to be changed:
+- all the paths and parameters in `scripts/train_model.sh`
+- `working_dir` and `data_pth` in `src/configs/config_train.yaml` (also `job_name`???)
+- `working_dir` and `data_pth` in `src/configs/config_predict.yaml`
+- column in file `src/configs/data/msms/msms_config.yaml` to select the data to use for the training
+
 ## Add CI badges
 Add the CI badges by adding the following line to the README.md: 
 ```console

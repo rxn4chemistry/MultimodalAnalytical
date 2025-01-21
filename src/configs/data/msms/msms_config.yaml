@@ -7,7 +7,7 @@ Formula:
     tokenizer_regex: ([A-Z]{1}[a-z]?[0-9]*)
 MSMS:
   type: msms_text
-  column: msms_iceberg__[M+H]+
+  column: msms_cfmid_positive_10ev # msms_iceberg__[M+H]+
   target: False
   preprocessor_arguments:
 Smiles:
