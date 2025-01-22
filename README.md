@@ -2,6 +2,10 @@
 
 ## Code for ???
 
+## TO DO:
+[-] fix issue with None in last rows of some parquets
+[-] implement new config for the data to handle the fragments
+
 ## Usage
 To run the code the following fields need to be changed:
 - all the paths and parameters in `scripts/train_model.sh`
