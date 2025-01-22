@@ -1,17 +1,17 @@
 # multimodal-bart
 
-## Code for ???
+Code for ???
 
 ## TO DO:
-[-] fix issue with None in last rows of some parquets
-[-] implement new config for the data to handle the fragments
+- [ ] fix issue with None in last rows of some parquets
+- [ ] implement new config for the data to handle the fragmentsgit 
 
 ## Usage
-To run the code the following fields need to be changed:
-- all the paths and parameters in `scripts/train_model.sh`
-- `working_dir` and `data_pth` in `src/configs/config_train.yaml` (also `job_name`???)
-- `working_dir` and `data_pth` in `src/configs/config_predict.yaml`
-- column in file `src/configs/data/msms/msms_config.yaml` to select the data to use for the training
+To run the code all the paths and parameters in `scripts/train_model.sh` need to be changed accordingly.
+Especially, to change the data for the training the config, column, modality, ... parameters need to be changed.
+Ex.  
+`data.MSMS.column=msms_cfmid_positive_10ev \`
+
 
 ## Add CI badges
 Add the CI badges by adding the following line to the README.md: 
