@@ -1,5 +1,18 @@
 # multimodal-bart
 
+Code for ???
+
+## TO DO:
+- [ ] fix issue with None in last rows of some parquets
+- [ ] implement new config for the data to handle the fragments
+
+## Usage
+To run the code all the paths and parameters in `scripts/train_model.sh` need to be changed accordingly.
+Especially, to change the data for the training the config, column, modality, ... parameters need to be changed.
+Ex.  
+`data.MSMS.column=msms_cfmid_positive_10ev \`
+
+
 ## Add CI badges
 Add the CI badges by adding the following line to the README.md: 
 ```console

@@ -4,10 +4,10 @@
 job_name: test
 
 # Working directory where everything is stored. Needs to be overriten depending on use
-working_dir: /Users/gga/Documents/code/multimodal-bart/
+working_dir: /dccstor/lau_storage/msms_project/multimodal-bart/
 
 # Data path
-data_path: /Users/gga/Documents/code/multimodal-bart/IR
+data_path: /dccstor/lau_storage/msms_project/multimodal-bart/data/
 preprocessor_path: null
 augment_names: null
 augment_path: null
