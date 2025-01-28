@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -632,7 +633,7 @@ def build_dataset_multimodal(
     augment_fraction: float = 0.0,
     augment_model_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
-    if not data_path.is_dir():
+    if not os.path.isdir(data_path):
         raise ValueError(
             "Data path must specify path to directory containing the dataset files as parqet."
         )
