@@ -2,25 +2,21 @@
 
 import logging
 import math
-from typing import Optional
+from typing import Dict, List, Optional, Any
 
+import pandas as pd
 import pytorch_lightning as pl
 from omegaconf import DictConfig
-from rdkit import Chem
-from rdkit import RDLogger
-import pandas as pd
-from typing import List, Dict, Any
-import numpy as np
+from rdkit import Chem, RDLogger
 
 from mmbart.data.datamodules import MultiModalDataModule
 from mmbart.defaults import DEFAULT_SEED
-
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 def clean_sample(sample: str, canonicalise: bool) -> str:
-    """Clean sampled string from a model. 
+    """Clean sampled string from a model.
     
     Removes eos, bos, pad. If canonicalise, returns canonical smiles string.
 
@@ -41,7 +37,7 @@ def clean_sample(sample: str, canonicalise: bool) -> str:
     return sample
 
 
-def calc_sampling_metrics(samples: List[List[str]], targets: List[str], molecules: bool = True) -> Dict[str, float]:
+def calc_sampling_metrics(samples: List[Any], targets: List[str], molecules: bool = True) -> Dict[str, float]:
     """Calculate Top-N accuracies for a model
 
     Args:
@@ -61,7 +57,7 @@ def calc_sampling_metrics(samples: List[List[str]], targets: List[str], molecule
     prediction_df["targets_clean"] = prediction_df["targets"].map(lambda target : clean_sample(target, molecules))
 
     # Calculate rank
-    prediction_df['rank'] = prediction_df.apply(lambda row : 
+    prediction_df['rank'] = prediction_df.apply(lambda row :
                                                 row['predictions_clean'].index(row['targets_clean']) if row['targets_clean'] in row['predictions_clean'] else n_beams, axis=1)
 
     # Calculate metrics

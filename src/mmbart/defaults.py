@@ -1,6 +1,5 @@
 from rdkit import Chem
 
-
 DEFAULT_VAL_SET_SIZE = 10000
 DEFAULT_TEST_SET_SIZE = 0.2
 DEFAULT_SEED = 3247

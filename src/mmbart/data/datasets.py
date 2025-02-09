@@ -1,4 +1,3 @@
-import os
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -446,10 +445,10 @@ def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
 
 
 def smiles_split_fn(
-    data_path: Path, target_column: str, cv_split: int = 0, seed: int = 3453
+    data_path: str, target_column: str, cv_split: int = 0, seed: int = 3453
 ):
-    data_path = Path(data_path)
-    parquet_paths = data_path.glob("*.parquet")
+    datapath = Path(data_path)
+    parquet_paths = datapath.glob("*.parquet")
 
     data_chunks = list()
     for parquet_path in parquet_paths:
@@ -623,7 +622,7 @@ def augment_model(dataset: Dataset, augment_model_config: Dict[str, Any]):
 
 def build_dataset_multimodal(
     data_config: Dict[str, Any],
-    data_path: Path,
+    data_path: str,
     cv_split: int,
     test_only: bool = False,
     func_group_split: bool = False,
@@ -633,7 +632,7 @@ def build_dataset_multimodal(
     augment_fraction: float = 0.0,
     augment_model_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
-    if not os.path.isdir(data_path):
+    if not Path(data_path).is_dir():
         raise ValueError(
             "Data path must specify path to directory containing the dataset files as parqet."
         )
