@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export HF_DATASETS_CACHE=/dccstor/ltlws3emb/cache/hf_cache
+export HF_DATASETS_CACHE=$1
 export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.2/lib64
 export TOKENIZERS_PARALLELISM=False
 export HYDRA_FULL_ERROR=1
