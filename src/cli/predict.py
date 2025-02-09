@@ -24,7 +24,7 @@ from mmbart.data.datasets import (  # noqa: F401
     build_dataset_multimodal,
 )
 from mmbart.modeling.wrapper import HFWrapper
-from mmbart.util import calculate_training_steps, seed_everything, calc_sampling_metrics
+from mmbart.utils import calculate_training_steps, seed_everything, calc_sampling_metrics
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

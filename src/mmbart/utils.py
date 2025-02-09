@@ -62,7 +62,7 @@ def calc_sampling_metrics(samples: List[List[str]], targets: List[str], molecule
 
     # Calculate rank
     prediction_df['rank'] = prediction_df.apply(lambda row : 
-                                                row['predictions'].index(row['ground_truth']) if row['ground_truth'] in row['predictions'] else n_beams, axis=1)
+                                                row['predictions_clean'].index(row['targets_clean']) if row['targets_clean'] in row['predictions_clean'] else n_beams, axis=1)
 
     # Calculate metrics
     metrics = {}

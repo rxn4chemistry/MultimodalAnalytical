@@ -18,7 +18,7 @@ script:
   # static typing
   - uv run mypy .
   # test suite
-  #- uv run pytest -sv --cov=mmbart tests
+  - uv run pytest -sv --cov=mmbart tests
 jobs:
   include:
     - python: 3.12 # in case of single test job we add it here
