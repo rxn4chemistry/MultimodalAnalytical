@@ -2,7 +2,6 @@
 from typing import Callable, Optional, Tuple
 
 import torch
-from rdkit import Chem, RDLogger
 from transformers import AutoTokenizer
 
 
@@ -28,8 +27,6 @@ class DecodeSampler:
         self.end_token_id = self.tokeniser.eos_token_id
 
         self.bad_token_ll = -1e5
-
-        RDLogger.DisableLog("rdApp.*")
 
     def decode(
         self, decode_fn, batch_size, sampling_alg="greedy", device="cpu", **kwargs
@@ -393,147 +390,3 @@ class DecodeSampler:
             sorted_lls.append(list(lls))
 
         return sorted_mols, sorted_lls
-
-    def calc_sampling_metrics(self, sampled_smiles, target_smiles, molecules: bool = True): # noqa: ARG002
-        """Calculate sampling metrics for the model
-
-        If sampled_smiles is a List[List[str]] then the following metrics for beam search are calculated (up to the
-        maximum given by the number of elements in the inner lists):
-            - "top_1_accuracy"
-            - "top_5_accuracy"
-            - "top_10_accuracy"
-            - "top_20_accuracy"
-            - "top_50_accuracy"
-        The SMILES strings must be sorted in decreasing order of their predicted likelihood
-
-        If the sampled_smiles is a List[str] then "accuracy" is calculated
-
-        The the number of invalid SMILES "invalid" is also returned (for beam search this is just from the top_1)
-
-        Args:
-            sampled_smiles: SMILES strings produced by decode function,
-            target_smiles: target molecules as canonicalised SMILES strings
-
-        Returns:
-            dict containing results
-        """
-
-        num_sampled = len(sampled_smiles)
-        num_target = len(target_smiles)
-        err_msg = f"The number of sampled and target molecules must be the same, got {num_sampled} and {num_target}"
-        assert num_sampled == num_target, err_msg
-
-        if self.molecules:
-            mol_targets = [
-                Chem.MolFromSmiles(
-                    smi.replace(" ", "")
-                    .replace("<bos>", "")
-                    .replace("<pad>", "")
-                    .replace("<eos>", "")
-                    .replace(" ", '')
-                )
-                for smi in target_smiles
-            ]
-            canon_targets = [Chem.MolToSmiles(mol) for mol in mol_targets]
-        else:
-            canon_targets = [text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip() for text in target_smiles]
-
-        data_type = type(sampled_smiles[0])
-        if isinstance(data_type, str):
-            results = DecodeSampler._calc_greedy_metrics(sampled_smiles, canon_targets, molecules=self.molecules)
-        elif isinstance(data_type, list):
-            results = DecodeSampler._calc_beam_metrics(sampled_smiles, canon_targets, molecules=self.molecules)
-        else:
-            raise TypeError(
-                f"Elements of sampled_smiles must be either a str or a list, got {data_type}"
-            )
-
-        return results
-
-    @staticmethod
-    def _calc_greedy_metrics(sampled_smiles, target_smiles, molecules: bool = True):
-        if molecules:
-            sampled_mols = [
-                Chem.MolFromSmiles(
-                    smi.replace(" ", "")
-                    .replace("<bos>", "")
-                    .replace("<pad>", "")
-                    .replace("<eos>", "")
-                    .replace(' ', '')
-                )
-                for smi in sampled_smiles
-            ]
-        else:
-            sampled_mols = [
-                text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in sampled_smiles
-            ]
-        invalid = [mol is None for mol in sampled_mols]
-
-        if molecules:
-            canon_smiles = [
-                "Unknown" if mol is None else Chem.MolToSmiles(mol) for mol in sampled_mols
-            ]
-        else:
-            canon_smiles = sampled_mols
-        correct_smiles = [
-            target_smiles[idx] == smi for idx, smi in enumerate(canon_smiles)
-        ]
-
-        num_correct = sum(correct_smiles)
-        total = len(correct_smiles)
-        num_invalid = sum(invalid)
-        perc_invalid = num_invalid / total
-        accuracy = num_correct / total
-
-        metrics = {"accuracy": accuracy, "invalid": perc_invalid}
-
-        return metrics
-
-    @staticmethod
-    def _calc_beam_metrics(sampled_smiles, target_smiles, molecules: bool = True):
-        top_1_samples = [mols[0] for mols in sampled_smiles]
-        top_1_results = DecodeSampler._calc_greedy_metrics(top_1_samples, target_smiles)
-
-        metrics = {
-            "top_1_accuracy": top_1_results["accuracy"],
-            "invalid": top_1_results["invalid"],
-        }
-
-        ks = [2, 3, 5, 10, 20, 50]
-        num_samples_list = [k for k in ks if k <= len(sampled_smiles[0])]
-
-        for num_samples in num_samples_list:
-            top_k_correct = []
-            num_mols = len(sampled_smiles)
-
-            for batch_idx, mols in enumerate(sampled_smiles):
-                samples = mols[:num_samples]
-
-                if molecules:
-                    samples_mols = [
-                        Chem.MolFromSmiles(
-                            smi.replace(" ", "")
-                            .replace("<bos>", "")
-                            .replace("<pad>", "")
-                            .replace("<eos>", "")
-                            .replace(' ', '')
-                        )
-                        for smi in samples
-                    ]
-                    samples_smiles = [
-                        "Unknown" if mol is None else Chem.MolToSmiles(mol)
-                        for mol in samples_mols
-                    ]
-                else:
-                    samples_smiles = [
-                        text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in samples
-                    ]
-                correct_smiles = [
-                    smi == target_smiles[batch_idx] for smi in samples_smiles
-                ]
-                is_correct = sum(correct_smiles) >= 1
-                top_k_correct.append(is_correct)
-            accuracy = sum(top_k_correct) / num_mols
-            metrics[f"top_{str(num_samples)}_accuracy"] = accuracy
-
-        return metrics

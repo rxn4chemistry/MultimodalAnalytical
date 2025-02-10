@@ -1,7 +1,5 @@
 from rdkit import Chem
 
-# Goal: File containing all defaults to be used throughout the repo.
-
 DEFAULT_VAL_SET_SIZE = 10000
 DEFAULT_TEST_SET_SIZE = 0.2
 DEFAULT_SEED = 3247

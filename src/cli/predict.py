@@ -8,20 +8,14 @@ ALL RIGHTS RESERVED
 """
 
 import logging
-import os
 import pickle
 from pathlib import Path
-
-os.environ["HF_DATASETS_CACHE"] = "/dccstor/ltlws3emb/cache/hf_cache"
-os.environ["LD_LIBRARY_PATH"] = "/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.2/lib64"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import hydra
 import pandas as pd
 import torch
 import tqdm
 from omegaconf import DictConfig, OmegaConf
-from rdkit import Chem
 
 from mmbart.data.data_utils import load_preprocessors
 from mmbart.data.datamodules import MultiModalDataModule
@@ -29,205 +23,42 @@ from mmbart.data.datasets import (  # noqa: F401
     build_dataset_multimodal,
 )
 from mmbart.modeling.wrapper import HFWrapper
-from mmbart.util import calculate_training_steps, seed_everything
+from mmbart.utils import calc_sampling_metrics, calculate_training_steps, seed_everything
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-def calc_sampling_metrics(sampled_smiles, target_smiles, molecules: bool = True):
-        """Calculate sampling metrics for the model
-
-        If sampled_smiles is a List[List[str]] then the following metrics for beam search are calculated (up to the
-        maximum given by the number of elements in the inner lists):
-            - "top_1_accuracy"
-            - "top_5_accuracy"
-            - "top_10_accuracy"
-            - "top_20_accuracy"
-            - "top_50_accuracy"
-        The SMILES strings must be sorted in decreasing order of their predicted likelihood
-
-        If the sampled_smiles is a List[str] then "accuracy" is calculated
-
-        The the number of invalid SMILES "invalid" is also returned (for beam search this is just from the top_1)
-
-        Args:
-            sampled_smiles: SMILES strings produced by decode function,
-            target_smiles: target molecules as canonicalised SMILES strings
-
-        Returns:
-            dict containing results
-        """
-
-        num_sampled = len(sampled_smiles)
-        num_target = len(target_smiles)
-        err_msg = f"The number of sampled and target molecules must be the same, got {num_sampled} and {num_target}"
-        assert num_sampled == num_target, err_msg
-
-        if molecules:
-            mol_targets = [
-                Chem.MolFromSmiles(
-                    smi.replace(" ", "")
-                    .replace("<bos>", "")
-                    .replace("<pad>", "")
-                    .replace("<eos>", "")
-                    .replace(" ", '')
-                )
-                for smi in target_smiles
-            ]
-            canon_targets = [Chem.MolToSmiles(mol) for mol in mol_targets]
-        else:
-            canon_targets = [text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip() for text in target_smiles]
-
-        data_type = type(sampled_smiles[0])
-        if isinstance(data_type, str):
-            results = _calc_greedy_metrics(sampled_smiles, canon_targets, molecules=molecules)
-        elif isinstance(data_type, list):
-            results = _calc_beam_metrics(sampled_smiles, canon_targets, molecules=molecules)
-        else:
-            raise TypeError(
-                f"Elements of sampled_smiles must be either a str or a list, got {data_type}"
-            )
-
-        return results
-
-
-def _calc_greedy_metrics(sampled_smiles, target_smiles, molecules: bool = True):
-    if molecules:
-        sampled_mols = [
-            Chem.MolFromSmiles(
-                smi.replace(" ", "")
-                .replace("<bos>", "")
-                .replace("<pad>", "")
-                .replace("<eos>", "")
-                .replace(' ', '')
-            )
-            for smi in sampled_smiles
-        ]
-        canon_smiles = [
-            "Unknown" if mol is None else Chem.MolToSmiles(mol) for mol in sampled_mols
-        ]
-        invalid = [mol is None for mol in sampled_mols]
-    else:
-        sampled_text = [
-            text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in sampled_smiles
-        ]
-        canon_smiles = sampled_text
-        invalid = [False] * len(sampled_text)
-            
-    correct_smiles = [
-        target_smiles[idx] == smi for idx, smi in enumerate(canon_smiles)
-    ]
-
-    num_correct = sum(correct_smiles)
-    total = len(correct_smiles)
-    num_invalid = sum(invalid)
-    perc_invalid = num_invalid / total
-    accuracy = num_correct / total
-
-    metrics = {"accuracy": accuracy, "invalid": perc_invalid}
-
-    return metrics
-
-def _calc_beam_metrics(sampled_smiles, target_smiles, molecules: bool = True):
-    top_1_samples = [mols[0] for mols in sampled_smiles]
-    top_1_results = _calc_greedy_metrics(top_1_samples, target_smiles)
-
-    metrics = {
-        "top_1_accuracy": top_1_results["accuracy"],
-        "invalid": top_1_results["invalid"],
-    }
-
-    ks = [2, 3, 5, 10, 20, 50]
-    num_samples_list = [k for k in ks if k <= len(sampled_smiles[0])]
-
-    for num_samples in num_samples_list:
-        top_k_correct = []
-        num_mols = len(sampled_smiles)
-
-        for batch_idx, mols in enumerate(sampled_smiles):
-            samples = mols[:num_samples]
-
-            if molecules:
-                samples_mols = [
-                    Chem.MolFromSmiles(
-                        smi.replace(" ", "")
-                        .replace("<bos>", "")
-                        .replace("<pad>", "")
-                        .replace("<eos>", "")
-                        .replace(' ', '')
-                    )
-                    for smi in samples
-                ]
-                samples_smiles = [
-                    "Unknown" if mol is None else Chem.MolToSmiles(mol)
-                    for mol in samples_mols
-                ]
-            else:
-                samples_smiles = [
-                    text.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for text in samples
-                ]
-            correct_smiles = [
-                smi == target_smiles[batch_idx] for smi in samples_smiles
-            ]
-            is_correct = sum(correct_smiles) >= 1
-            top_k_correct.append(is_correct)
-        accuracy = sum(top_k_correct) / num_mols
-        metrics[f"top_{str(num_samples)}_accuracy"] = accuracy
-
-    return metrics
-
-def score_molecules(predictions, ground_truth, n_beams = 10):
-    preds = pd.DataFrame({"predictions": predictions, "ground_truth": ground_truth})
-    preds['predictions'] = preds['predictions'].map(lambda pred_list : [pred.replace(' ', '').replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", "").strip() for pred in pred_list])
-    preds['rank'] = preds.apply(lambda row : row['predictions'].index(row['ground_truth']) if row['ground_truth'] in row['predictions'] else n_beams, axis=1)
-
-    for i in range(n_beams):
-        logger.info(f"Top-{i+1}: {(preds['rank'] <= i).sum() / len(preds) * 100 :.3f}")
 
 @hydra.main(version_base=None, config_path="../configs", config_name="config_predict")
 def main(config: DictConfig):
 
     seed_everything()
-    print(config)
-
+    logger.info(config)
 
     if config.model.model_checkpoint_path is None:
         raise ValueError(
             "Please supply model_checkpoint_path with config.model_checkpoint_path=..."
         )
 
+
     # Load dataset
     data_config = config["data"].copy()
     print(data_config)
     data_config = OmegaConf.to_container(data_config, resolve=True)
 
-    data_path = config["data_path"]
-    cv_split = config["cv_split"]
-    func_group_split = (
-        config["func_group_split"] if "func_group_split" in config else False
-    )
-    smiles_split = config["smiles_split"] if "smiles_split" in config else False
-    augment_path = config["augment_path"] if "augment_path" in config else None
-    augment_names = config["augment_names"] if "augment_names" in config else None
-    augment_model_config = (
-        config["augment_model"] if "augment_model" in config else None
-    )
-    augment_fraction = (
-        config["augment_fraction"] if "augment_fraction" in config else 0.0
-    )
-
     data_config, dataset = build_dataset_multimodal(
         data_config,
-        data_path=data_path,
-        cv_split=cv_split,
-        func_group_split=func_group_split,
-        smiles_split=smiles_split,
-        augment_path=augment_path,
-        augment_fraction=augment_fraction,
-        augment_names=augment_names,
-        augment_model_config=augment_model_config,
+        data_path=config["data_path"],
+        cv_split=config["cv_split"],
+        func_group_split=config["func_group_split"],
+        smiles_split=config["smiles_split"],
+        augment_path=config["augment_path"],
+        augment_fraction=config["augment_fraction"],
+        augment_names=config["augment_names"],
+        augment_model_config=config["augment_model"],
     )
     logging.info("Build dataset")
+
 
     # Load/build tokenizers and preprocessors
     if config["preprocessor_path"] is None:
@@ -245,11 +76,11 @@ def main(config: DictConfig):
             pickle.dump((data_config, preprocessors), f)
     logging.info("Build preprocessors")
 
+
     # Load datamodule
     model_type = config["model"]["model_type"]
     batch_size = config["model"]["batch_size"]
     mixture = config["mixture"]
-
 
     data_module = MultiModalDataModule(
         dataset=dataset,
@@ -262,6 +93,7 @@ def main(config: DictConfig):
     target_modality = data_module.collator.target_modality
     target_tokenizer = preprocessors[target_modality]
     logging.info("Build Datamodule")
+
 
     # Load Model
     train_steps = calculate_training_steps(data_module, config)
@@ -283,13 +115,13 @@ def main(config: DictConfig):
     model.to(device)
 
     # Evaluate model
-    test_loader = data_module.test_dataloader(test_idx=Path("./CNMR_test_idx.npy"))
+    test_loader = data_module.test_dataloader()
 
     predictions = list()
     ground_truth = list()
 
     n_beams =10
-    decode_method = "generate"
+    decode_method = "custom"
 
     for i, batch in enumerate(tqdm.tqdm(test_loader)):
         batch["encoder_input"] = {
@@ -345,7 +177,7 @@ def main(config: DictConfig):
             predictions.extend(detokenized_sequences)
             ground_truth.extend(batch["target_smiles"])
 
-    metrics = calc_sampling_metrics(predictions, ground_truth)
+    metrics = calc_sampling_metrics(predictions, ground_truth, molecules=config['molecules'])
     logger.info(metrics)
     
     save_path = (

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export HF_DATASETS_CACHE=/dccstor/ltlws3emb/cache/hf_cache
+export HF_DATASETS_CACHE=$1
 export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.2/lib64
 export TOKENIZERS_PARALLELISM=False
 export HYDRA_FULL_ERROR=1
@@ -8,10 +8,13 @@ export HYDRA_FULL_ERROR=1
 modality=carbon
 model=custom_hf_bart
 patch_size=125
-lr=1e-3
 
-top_dir=/dccstor/ltlws3emb/multimodal_bart/runs/final_results
-exp_dir=test_customModel_generate_${modality}_${lr}_repeated
+top_dir=$2
+exp_dir=$3
+data_path=$4
+checkpoint_path=$5
+preprocessor_path=$6
+
 
 
 mkdir -p ${top_dir}/${exp_dir}
@@ -21,8 +24,9 @@ jbsub -queue x86_6h -cores 4+1 -mem 30g \
         python ./src/mmbart/modeling/cli/predict.py\
         job_name=${exp_dir} \
         data=multimodal_analytical/${modality} \
-        data_path=/dccstor/ltlws3emb/analytical_data/data/simulated/13C_NMR \
-        model.model_checkpoint_path=/dccstor/ltlws3emb/multimodal_bart/runs/train_customModel_generate_carbon_1e-3/version_0/checkpoints/last.ckpt \
+        data_path=${data_path} \
+        model.model_checkpoint_path=${checkpoint_path} \
+        preprocessor_path=${preprocessor_path}
         model=${model} \
         molecules=True \
 
