@@ -526,17 +526,17 @@ class HFWrapper(pl.LightningModule):
 
         token_acc = self._calc_token_acc(batch, model_output)
 
-        generated_sequences = self.generate(batch, n_beams=5)
+        generated_sequences = self.generate(batch, n_beams=1)
 
         scores = self.score_val_sequences(
-            generated_sequences, batch["target_smiles"], n_beams=5
+            generated_sequences, batch["target_smiles"], n_beams=1
         )
 
         val_outputs = {
             "val_loss": loss,
             "val_token_acc": token_acc,
-            "val_molecular_accuracy_tensorboard": torch.Tensor([scores["Top1"]]),
-            "val_molecular_accuracy": torch.Tensor([scores["Top1"]]),
+            "val_molecular_accuracy_tensorboard": torch.Tensor([scores["Top-1"]]),
+            "val_molecular_accuracy": torch.Tensor([scores["Top-1"]]),
         }
 
         self.validation_step_outputs.append(val_outputs)
@@ -569,10 +569,10 @@ class HFWrapper(pl.LightningModule):
 
         test_outputs = {
             "test_loss": loss,
-            "test_top1": scores["Top1"],
-            "test_top2": scores["Top2"],
-            "test_top5": scores["Top5"],
-            "test_top10": scores["Top10"],
+            "test_top1": scores["Top-1"],
+            "test_top2": scores["Top-2"],
+            "test_top5": scores["Top-5"],
+            "test_top10": scores["Top-10"],
         }
 
         self.test_step_outputs.append(test_outputs)
