@@ -135,7 +135,7 @@ def main(config: DictConfig):
     predictions = list()
     ground_truth = list()
     
-    n_beams =10
+    n_beams = 10
     decode_method = "custom"
     for i, batch in enumerate(tqdm.tqdm(test_loader)):
         batch["encoder_input"] = {

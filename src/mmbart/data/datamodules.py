@@ -477,7 +477,7 @@ class MultiModalDataModule(pl.LightningDataModule):
         if test_idx is None:
             #Sample random 10k samples
             selected_sample = np.random.randint(
-                0, len(self.dataset["test"]), min(100, len(self.dataset["test"]))
+                0, len(self.dataset["test"]), min(10000, len(self.dataset["test"]))
             )
         else:
             with test_idx.open("rb") as f:
