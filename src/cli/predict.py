@@ -177,7 +177,7 @@ def main(config: DictConfig):
             predictions.extend(detokenized_sequences)
             ground_truth.extend(batch["target_smiles"])
 
-    metrics = calc_sampling_metrics(predictions, ground_truth)
+    metrics = calc_sampling_metrics(predictions, ground_truth, molecules=config['molecules'])
     logger.info(metrics)
     
     save_path = (

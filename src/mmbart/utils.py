@@ -37,12 +37,14 @@ def clean_sample(sample: str, canonicalise: bool) -> str:
     return sample
 
 
-def calc_sampling_metrics(samples: List[Any], targets: List[str], molecules: bool = True) -> Dict[str, float]:
+def calc_sampling_metrics(samples: List[Any], targets: List[str], molecules: bool = True, logging: bool = False) -> Dict[str, float]:
     """Calculate Top-N accuracies for a model
 
     Args:
         sampled_smiles: SMILES strings produced by decode function,
         target_smiles: target molecules as canonicalised SMILES strings
+        molecules: Wether to canonicalise or not
+        training: Log results or not. Disable during training
 
     Returns:
         dict containing results
@@ -66,9 +68,11 @@ def calc_sampling_metrics(samples: List[Any], targets: List[str], molecules: boo
     #all_preds = np.stack(prediction_df["predictions"].to_list())
 
     for i in range(n_beams):
-        top_n_acc = (prediction_df['rank'] <= i).sum() / len(prediction_df) * 100
+        top_n_acc = float((prediction_df['rank'] <= i).sum() / len(prediction_df) * 100)
         metrics[f"Top-{i+1}"] = top_n_acc
-        logger.info(f"Top-{i+1}: {top_n_acc:.3f}")
+
+        if logging:
+            logger.info(f"Top-{i+1}: {top_n_acc:.3f}")
     
     return metrics
 

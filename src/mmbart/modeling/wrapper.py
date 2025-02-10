@@ -1,10 +1,8 @@
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import pytorch_lightning as pl
 import torch
-from rdkit import Chem
 from torch import nn
 from torch.optim.lr_scheduler import OneCycleLR
 from transformers import (
@@ -19,6 +17,7 @@ from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqModelOutput
 
 from mmbart.modeling.decoder import DecodeSampler
+from mmbart.utils import calc_sampling_metrics
 
 from .custom_modeling import CustomBartForConditionalGeneration
 from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
@@ -424,13 +423,11 @@ class HFWrapper(pl.LightningModule):
 
         return token_probs
     
-    ### Move to Evaluator ###  # noqa: E266
-    def score_sequences(
+    def score_val_sequences(
         self,
         generated_sequences: torch.Tensor,
         targets: List[str],
-        n_beams: int = 1,
-        smiles: bool = True,
+        n_beams: int,
     ) -> Dict[str, float]:
         # Move to evaluator
         """Decodes generated sequences and calculates TopN scores.
@@ -442,43 +439,33 @@ class HFWrapper(pl.LightningModule):
             Dict[str, float]: Dictionary containing the TopN scores
         """
 
+        # Decode
         decoded_sequences = self.target_tokenizer.batch_decode(
             generated_sequences, skip_special_tokens=True
         )
-        decoded_sequences = [
-            sequence.replace(" ", "") for sequence in decoded_sequences
-        ]
 
-        if smiles:
-            decoded_sequences = [
-                (
-                    Chem.MolToSmiles(Chem.MolFromSmiles(smiles))
-                    if Chem.MolFromSmiles(smiles)
-                    else ""
-                )
-                for smiles in decoded_sequences
-            ]
-            targets = [
-                Chem.MolToSmiles(Chem.MolFromSmiles(smiles)) for smiles in targets
-            ]
+        # Reshape to (batch_size, n_beams)
+        decoded_sequences = [decoded_sequences[i*n_beams : (i+1)*n_beams] for i in range(len(decoded_sequences) // n_beams)]
 
-        decoded_sequences = [
-            decoded_sequences[i * n_beams : (i + 1) * n_beams]
-            for i in range(len(targets))
-        ]
-
-        ranks = np.array(
-            [
-                prediction.index(target) if target in prediction else (n_beams + 1)
-                for prediction, target in zip(decoded_sequences, targets)
-            ]
-        )
-
-        scores = dict()
-        for i in range(n_beams):
-            scores[f"Top{i+1}"] = (ranks <= i).sum() / len(ranks)
+        scores = calc_sampling_metrics(decoded_sequences, targets, molecules=False, logging=False)
 
         return scores
+    
+    def _calc_token_acc(self, batch_input, model_output):
+
+        token_ids = batch_input["target"].T
+        pred_tokens = torch.argmax(model_output.logits, dim=-1)
+
+        target_mask = token_ids != -100
+        correct_ids = torch.eq(token_ids, pred_tokens)
+        correct_ids = correct_ids * target_mask
+
+        num_correct = correct_ids.sum().float()
+        total = target_mask.sum().float()
+
+        accuracy = num_correct / total
+
+        return accuracy
 
     ### Pytorch Lightning Requirements ###  # noqa: E266
 
@@ -539,10 +526,10 @@ class HFWrapper(pl.LightningModule):
 
         token_acc = self._calc_token_acc(batch, model_output)
 
-        generated_sequences = self.generate(batch)
+        generated_sequences = self.generate(batch, n_beams=5)
 
-        scores = self.score_sequences(
-            generated_sequences, batch["target_smiles"], n_beams=1
+        scores = self.score_val_sequences(
+            generated_sequences, batch["target_smiles"], n_beams=5
         )
 
         val_outputs = {
@@ -554,22 +541,6 @@ class HFWrapper(pl.LightningModule):
 
         self.validation_step_outputs.append(val_outputs)
         return val_outputs
-
-    def _calc_token_acc(self, batch_input, model_output):
-
-        token_ids = batch_input["target"].T
-        pred_tokens = torch.argmax(model_output.logits, dim=-1)
-
-        target_mask = token_ids != -100
-        correct_ids = torch.eq(token_ids, pred_tokens)
-        correct_ids = correct_ids * target_mask
-
-        num_correct = correct_ids.sum().float()
-        total = target_mask.sum().float()
-
-        accuracy = num_correct / total
-
-        return accuracy
 
     def on_validation_epoch_end(self):
         avg_outputs = self._avg_dicts(self.validation_step_outputs)
@@ -592,7 +563,7 @@ class HFWrapper(pl.LightningModule):
 
         generated_sequences = self.generate(batch, n_beams=10)
 
-        scores = self.score_sequences(
+        scores = self.score_val_sequences(
             generated_sequences, batch["target_smiles"], n_beams=10
         )
 
