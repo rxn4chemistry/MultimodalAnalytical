@@ -329,17 +329,26 @@ class HFWrapper(pl.LightningModule):
         """
 
         # Get Encoder output
-        model_output = self.forward(batch)
+        input_ids = {
+            modality: input_ids.transpose(1, 0)
+            for modality, input_ids in batch["encoder_input"].items()
+        }
 
-        encoder_output = BaseModelOutput(
-            last_hidden_state=model_output.encoder_last_hidden_state
+        attention_mask = (~batch["encoder_pad_mask"]).int().T
+
+        inputs_embeds = self.multimodal_embedding(input_ids)
+
+        encoder_outputs = self.hf_model.model.encoder(
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
         )
 
         generated_sequences = self.hf_model.generate(
+            encoder_outputs=encoder_outputs,
+            attention_mask=attention_mask,
             num_beams=n_beams,
             num_return_sequences=n_beams,
             generation_config=self.generation_config,
-            encoder_outputs=encoder_output,
             logits_processor=logits_processor,
             use_cache=False,
         )

@@ -12,11 +12,13 @@ preprocessor_path: null
 augment_names: null
 augment_path: null
 augment_fraction: 0.0
+augment_model: null
 finetuning: False
 func_group_split: False
 smiles_split: False
 molecules: True
 cv_split: 0 
+mixture: null
 
 model:
   model_checkpoint_path: null
