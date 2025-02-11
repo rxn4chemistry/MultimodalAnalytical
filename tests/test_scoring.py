@@ -45,5 +45,5 @@ def test_scoring() -> None:
 
         metrics = calc_sampling_metrics(test_data['predictions'], test_data['targets'])
 
-        assert isclose(metrics['Top-1'], 20.0) & isclose(metrics['Top-10'], 60.0)
+        assert isclose(metrics['Top-1'], 0.2) & isclose(metrics['Top-10'], 0.6)
 
