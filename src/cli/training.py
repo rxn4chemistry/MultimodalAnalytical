@@ -9,11 +9,12 @@ ALL RIGHTS RESERVED
 import logging
 import pickle
 from pathlib import Path
+from typing import Any, Dict, List
 
 import hydra
+import numpy as np
 import pandas as pd
 import torch
-import tqdm
 from omegaconf import DictConfig, OmegaConf
 
 from mmbart.data.data_utils import load_preprocessors
@@ -130,69 +131,15 @@ def main(config: DictConfig):
     model.to(device)
 
     # Evaluate best model
-    test_loader = data_module.test_dataloader()
-
-    predictions = list()
-    ground_truth = list()
-    
     n_beams = 10
-    decode_method = "custom"
-    for i, batch in enumerate(tqdm.tqdm(test_loader)):
-        batch["encoder_input"] = {
-            modality: modality_input.to(device)
-            for modality, modality_input in batch["encoder_input"].items()
-        }
-        batch["decoder_input"] = {
-            modality: modality_input.to(device)
-            for modality, modality_input in batch["decoder_input"].items()
-        }
-
-        for key in ["encoder_pad_mask", "decoder_pad_mask", "target_mask", "target"]:
-            batch[key] = batch[key].to(device)
-
-        
-        if decode_method == "custom":
-
-            with torch.no_grad():
-                predictions_batch, log_lhs_batch = model.sample_molecules(
-                    batch, n_beams=n_beams, sampling_alg="beam"
-                )
-
-            if isinstance(predictions_batch, torch.Tensor):
-                predictions_batch = predictions_batch.cpu().tolist()
-            if isinstance(log_lhs_batch, torch.Tensor):
-                log_lhs_batch = log_lhs_batch.cpu().tolist()
-
-            if "target_smiles" in batch:
-                if isinstance(batch["target_smiles"], torch.Tensor):
-                    ground_truth.extend(batch["target_smiles"].cpu().tolist())
-                else:
-                    ground_truth.extend(batch["target_smiles"])
-            else:
-                if isinstance(batch["target"], torch.Tensor):
-                    ground_truth.extend(batch["target"].cpu().tolist())
-                else:
-                    ground_truth.extend(batch["target"])
-
-            predictions.extend(predictions_batch)
-        
-        else:
-
-            generated_sequences = model.generate(batch, n_beams=n_beams)
-
-            detokenized_sequences = preprocessors[target_modality].batch_decode(
-                generated_sequences, skip_special_tokens=True
-            )
-            detokenized_sequences = [
-                detokenized_sequences[j * n_beams : (j + 1) * n_beams]
-                for j in range(len(detokenized_sequences) // n_beams)
-            ]
-
-            predictions.extend(detokenized_sequences)
-            ground_truth.extend(batch["target_smiles"])
+    batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module) # type:ignore
     
-    metrics = calc_sampling_metrics(predictions, ground_truth, molecules=config['molecules'])
-    logger.info(metrics)
+    # Concatenate Predictions
+    predictions = {'avg_loss': np.mean([batch['loss'] for batch in batch_predictions]),
+                   'predictions': [batch['predictions'][i * n_beams : (i+1) * n_beams] for batch in batch_predictions for i in range(len(batch['predictions']) // n_beams)],
+                   'targets': [target for batch in batch_predictions for target in batch['targets']]}
+    
+    calc_sampling_metrics(predictions['predictions'], predictions['targets'], molecules=config['molecules'], logging=True)
     
     save_path = (
         Path(config["working_dir"])
@@ -201,7 +148,7 @@ def main(config: DictConfig):
     )
     with (save_path).open("wb") as save_file:
         pickle.dump(
-            {"predictions": predictions, "ground_truth": ground_truth},
+            predictions,
             save_file,
         )
 

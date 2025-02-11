@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pytorch_lightning as pl
@@ -16,7 +15,6 @@ from transformers import (
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import Seq2SeqModelOutput
 
-from mmbart.modeling.decoder import DecodeSampler
 from mmbart.utils import calc_sampling_metrics
 
 from .custom_modeling import CustomBartForConditionalGeneration
@@ -277,6 +275,23 @@ class HFWrapper(pl.LightningModule):
             if params.dim() > 1:
                 nn.init.xavier_uniform_(params)
 
+    def configure_optimizers(self):
+        """Set up optimisers for pytorch lightning"""
+        params = self.parameters()
+
+        optim = OPTIMISER_REGISTRY[self.optimiser](
+            params,
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+            betas=(self.adam_beta1, self.adam_beta2),
+        )
+
+        print("Using cyclical LR schedule.")
+        cycle_sch = OneCycleLR(optim, self.lr, total_steps=self.num_steps)
+        sch = {"scheduler": cycle_sch, "interval": "step"}
+
+        return [optim], [sch]
+
     def forward(self, batch: Dict[str, Any]) -> Seq2SeqModelOutput:
         """Forward step of the model.
         Args:
@@ -354,152 +369,6 @@ class HFWrapper(pl.LightningModule):
         )
 
         return generated_sequences
-    
-    def sample_molecules(
-        self,
-        batch: Dict[str, Any],
-        n_beams: int = 1,
-        sampling_alg: str = "beam", # noqa: ARG002
-        logits_processor: Optional[LogitsProcessor] = None, # noqa: ARG002
-    ) -> Tuple[List[str], List[Any]]:
-        """Use same decoding strategy as BART in Open-source code repo.
-        Args:
-            batch: batch containing input, mask, etc.
-            n_beams: How many beams are used for beam search
-        Returns:
-            torch.Tensor: generated sequences
-        """
-
-        decoder = DecodeSampler(
-            self.target_tokenizer,
-            125,
-            target_modality=self.target_modality,
-            molecules=True, # Get it from config file from train_multimodal.py
-        )
-
-        self.freeze()
-
-        input_ids = {
-            modality: input_ids.transpose(1, 0)
-            for modality, input_ids in batch["encoder_input"].items()
-        }
-
-        attention_mask = (~batch["encoder_pad_mask"]).int().T
-
-        # Make encoder embedding
-        inputs_embeds = self.multimodal_embedding(input_ids)
-
-        # Get Encoder output
-        encoder_output = self.hf_model.model.encoder(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
-
-        #encoder_output = BaseModelOutput(
-        #    last_hidden_state=model_output.last_hidden_state
-        #)
-
-        decode_fn = partial(self._decode_fn, encoder_output=encoder_output,  attention_mask=attention_mask)
-                            
-        sorted_mols, sorted_lls = decoder.beam_decode(decode_fn, batch_size=int(inputs_embeds.shape[0]), device=inputs_embeds.device, k=n_beams)
-
-        self.unfreeze()
-
-        return sorted_mols, sorted_lls
-
-    def _decode_fn(self, token_ids, pad_mask, encoder_output, attention_mask):
-        
-        assert token_ids[self.target_modality].shape == pad_mask.shape
-
-        #model_output = self.hf_model(
-        #    inputs_embeds=inputs_embeds,
-        #    attention_mask=attention_mask,
-        #    decoder_input_ids=token_ids[self.target_modality].transpose(1, 0),
-        #    decoder_attention_mask=pad_mask.int().T,
-        #)
-
-        model_output = self.hf_model.model.decoder(
-            input_ids=token_ids[self.target_modality].transpose(1, 0),
-            attention_mask=(~pad_mask).int().T,
-            encoder_hidden_states=encoder_output[0],
-            encoder_attention_mask=attention_mask
-        )
-
-        lm_logits = self.hf_model.lm_head(model_output[0])
-        #lm_logits = lm_logits + self.hf_model.final_logits_bias.to(lm_logits.device) Full logits
-
-        token_logits = lm_logits.transpose(0,1)
-        log_softmax = nn.LogSoftmax(dim=2)
-        token_probs = log_softmax(token_logits)
-        
-
-        return token_probs
-    
-    def score_val_sequences(
-        self,
-        generated_sequences: torch.Tensor,
-        targets: List[str],
-        n_beams: int,
-    ) -> Dict[str, float]:
-        # Move to evaluator
-        """Decodes generated sequences and calculates TopN scores.
-        Args:
-            generated_sequences: sampled sequences from the model
-            target: target sequences
-            n_beams: n beams used in generation
-        Returns:
-            Dict[str, float]: Dictionary containing the TopN scores
-        """
-
-        # Decode Targets
-        targets[targets == -100] = self.target_tokenizer.pad_token_id
-        targets = self.target_tokenizer.batch_decode(
-            targets, skip_special_tokens=True
-        )
-
-        # Decode Predictions
-        decoded_sequences = self.target_tokenizer.batch_decode(
-            generated_sequences, skip_special_tokens=True
-        )
-
-        # Reshape to (batch_size, n_beams)
-        decoded_sequences = [decoded_sequences[i*n_beams : (i+1)*n_beams] for i in range(len(decoded_sequences) // n_beams)]
-        
-        scores = calc_sampling_metrics(decoded_sequences, targets, molecules=False)
-
-        return scores
-    
-    def _calc_token_acc(self, batch_input, model_output):
-
-        token_ids = batch_input["target"].T
-        pred_tokens = torch.argmax(model_output.logits, dim=-1)
-
-        target_mask = token_ids != -100
-        correct_ids = torch.eq(token_ids, pred_tokens)
-        correct_ids = correct_ids * target_mask
-
-        num_correct = correct_ids.sum().float()
-        total = target_mask.sum().float()
-
-        accuracy = num_correct / total
-
-        return accuracy
-
-    ### Pytorch Lightning Requirements ###  # noqa: E266
-
-    def configure_optimizers(self):
-        """Set up optimisers for pytorch lightning"""
-        params = self.parameters()
-
-        optim = OPTIMISER_REGISTRY[self.optimiser](
-            params,
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            betas=(self.adam_beta1, self.adam_beta2),
-        )
-
-        print("Using cyclical LR schedule.")
-        cycle_sch = OneCycleLR(optim, self.lr, total_steps=self.num_steps)
-        sch = {"scheduler": cycle_sch, "interval": "step"}
-
-        return [optim], [sch]
 
     def training_step(self, batch: Dict[str, Any], batch_idx: int) -> torch.Tensor:
         """Training step implementation for pytorch lightning.
@@ -562,8 +431,8 @@ class HFWrapper(pl.LightningModule):
         self._log_dict(avg_outputs)
         self.validation_step_outputs = list()
 
-    def test_step(self, batch, batch_idx): # noqa: ARG002
-        """Test step implementation for pytorch lightning.
+    def predict_step(self, batch, batch_idx): # noqa: ARG002
+        """Predict step implementation for pytorch lightning.
         Args:
             batch: batch containing input, mask, etc.
             batch_idx: Batch number
@@ -577,25 +446,9 @@ class HFWrapper(pl.LightningModule):
         loss = model_output.loss
 
         generated_sequences = self.generate(batch, n_beams=10)
-
-        scores = self.score_val_sequences(
-            generated_sequences, batch["target_smiles"], n_beams=10
-        )
-
-        test_outputs = {
-            "test_loss": loss,
-            "test_top1": scores["Top-1"],
-            "test_top2": scores["Top-2"],
-            "test_top5": scores["Top-5"],
-            "test_top10": scores["Top-10"],
-        }
-
-        self.test_step_outputs.append(test_outputs)
-        return test_outputs
-
-    def on_test_epoch_end(self):
-        avg_outputs = self._avg_dicts(self.test_step_outputs)
-        self._log_dict(avg_outputs)
+        decoded_sequences = self.target_tokenizer.batch_decode(generated_sequences, skip_special_tokens=True)
+        
+        return {"loss": loss, "predictions": decoded_sequences, "targets": batch['target_smiles']}
 
     def _avg_dicts(self, colls: List[Dict[str, Any]]) -> Dict[str, Any]:
         complete_dict: Dict[str, list] = {key: [] for key, val in colls[0].items()}
@@ -619,19 +472,52 @@ class HFWrapper(pl.LightningModule):
             else:
                 self.log(key, val, sync_dist=True)
 
-    def _positional_embs(self):
-        # Not used but required for current implementation of Wrapper
-        """Produces a tensor of positional embeddings for the model
-
-        Returns a tensor of shape (self.max_seq_len, self.d_model) filled with positional embeddings,
-        which are created from sine and cosine waves of varying wavelength
+    def score_val_sequences(
+        self,
+        generated_sequences: torch.Tensor,
+        targets: List[str],
+        n_beams: int,
+    ) -> Dict[str, float]:
+        # Move to evaluator
+        """Decodes generated sequences and calculates TopN scores.
+        Args:
+            generated_sequences: sampled sequences from the model
+            target: target sequences
+            n_beams: n beams used in generation
+        Returns:
+            Dict[str, float]: Dictionary containing the TopN scores
         """
 
-        encs = torch.tensor([dim / self.d_model for dim in range(0, self.d_model, 2)])  # type: ignore
-        encs = 10000**encs
-        encs = [  # type: ignore
-            (torch.sin(pos / encs), torch.cos(pos / encs)) for pos in range(1024)
-        ]
-        encs = [torch.stack(enc, dim=1).flatten()[: self.d_model] for enc in encs]  # type: ignore
-        encs = torch.stack(encs)  # type: ignore
-        return encs
+        # Decode Targets
+        targets[targets == -100] = self.target_tokenizer.pad_token_id
+        targets = self.target_tokenizer.batch_decode(
+            targets, skip_special_tokens=True
+        )
+
+        # Decode Predictions
+        decoded_sequences = self.target_tokenizer.batch_decode(
+            generated_sequences, skip_special_tokens=True
+        )
+
+        # Reshape to (batch_size, n_beams)
+        decoded_sequences = [decoded_sequences[i*n_beams : (i+1)*n_beams] for i in range(len(decoded_sequences) // n_beams)]
+        
+        scores = calc_sampling_metrics(decoded_sequences, targets, molecules=False)
+
+        return scores
+    
+    def _calc_token_acc(self, batch_input, model_output):
+
+        token_ids = batch_input["target"].T
+        pred_tokens = torch.argmax(model_output.logits, dim=-1)
+
+        target_mask = token_ids != -100
+        correct_ids = torch.eq(token_ids, pred_tokens)
+        correct_ids = correct_ids * target_mask
+
+        num_correct = correct_ids.sum().float()
+        total = target_mask.sum().float()
+
+        accuracy = num_correct / total
+
+        return accuracy

@@ -36,12 +36,6 @@ from transformers.utils import (
 
 logger = logging.get_logger(__name__)
 
-_CHECKPOINT_FOR_DOC = "facebook/bart-base"
-_CONFIG_FOR_DOC = "BartConfig"
-
-# Base model docstring
-_EXPECTED_OUTPUT_SHAPE = [1, 8, 768]
-
 
 class PreLayerNormBartEncoderLayer(nn.Module):
     def __init__(self, config: BartConfig):
