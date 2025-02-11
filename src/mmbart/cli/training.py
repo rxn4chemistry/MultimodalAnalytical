@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="config_train")
+@hydra.main(version_base=None, config_path="../../configs", config_name="config_train")
 def main(config: DictConfig):
 
     seed_everything()

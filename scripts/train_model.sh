@@ -25,7 +25,7 @@ jbsub -queue x86_24h -cores 7+1 -mem 60g \
         molecules=True \
         trainer.epochs=60 \
         model.lr=${lr} \
-        job_name= ${exp_dir}\
+        job_name=${exp_dir}\
 
 
 

@@ -6,7 +6,7 @@ job_name: test
 # Working directory where everything is stored. Needs to be overriten depending on use
 working_dir: /dccstor/lau_storage/msms_project/multimodal-bart/
 
-# Data path
+# Data Arguments
 data_path: /dccstor/lau_storage/msms_project/multimodal-bart/data/
 preprocessor_path: null
 augment_names: null
