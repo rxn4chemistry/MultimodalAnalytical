@@ -30,41 +30,22 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="config_train")
+@hydra.main(version_base=None, config_path="../../../configs", config_name="config_train")
 def main(config: DictConfig):
 
     seed_everything()
 
     # Load dataset
     data_config = config["data"].copy()
-    print(data_config)
+    logger.info(data_config)
     data_config = OmegaConf.to_container(data_config, resolve=True)
-
-    data_path = config["data_path"]
-    cv_split = config["cv_split"]
-    func_group_split = (
-        config["func_group_split"] if "func_group_split" in config else False
-    )
-    smiles_split = config["smiles_split"] if "smiles_split" in config else False
-    augment_path = config["augment_path"] if "augment_path" in config else None
-    augment_names = config["augment_names"] if "augment_names" in config else None
-    augment_model_config = (
-        config["augment_model"] if "augment_model" in config else None
-    )
-    augment_fraction = (
-        config["augment_fraction"] if "augment_fraction" in config else 0.0
-    )
 
     data_config, dataset = build_dataset_multimodal(
         data_config,
-        data_path=data_path,
-        cv_split=cv_split,
-        func_group_split=func_group_split,
-        smiles_split=smiles_split,
-        augment_path=augment_path,
-        augment_fraction=augment_fraction,
-        augment_names=augment_names,
-        augment_model_config=augment_model_config,
+        data_path=config["data_path"],
+        cv_split=config["cv_split"],
+        splitting=config["splitting"],
+        augment_config=config["augment"]
     )
     logging.info("Build dataset")
 

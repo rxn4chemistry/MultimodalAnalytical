@@ -1,35 +1,39 @@
-from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-import numpy as np
 import pandas as pd
 from datasets import (
     Dataset,
     DatasetDict,
     concatenate_datasets,
     load_dataset,
-    load_from_disk,
 )
-from rdkit import Chem  # RDLogger
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 
+from mmbart.data.augmentations import augment
 from mmbart.defaults import (
     DEFAULT_SEED,
-    DEFAULT_TEST_SET_SIZE,
     DEFAULT_VAL_SET_SIZE,
 )
 
 valid_modalities = ["text", "vector"]
 
 
-def split(dataset: Dataset, cv_split: int = 0) -> DatasetDict:
-    all_indices_shuffled = np.arange(0, len(dataset), 1)
-    np.random.shuffle(all_indices_shuffled)
+def split(dataset: Dataset, cv_split: int = 0, seed: int = 3245) -> DatasetDict:
+    """
+    Split a dataset into train, test, and validation sets. Allows selection of cv_split.
 
-    splits = np.array_split(all_indices_shuffled, int(1 / DEFAULT_TEST_SET_SIZE))
-    test_indices = splits[cv_split]
-    train_indices = all_indices_shuffled[~np.isin(all_indices_shuffled, test_indices)]
+    Args:
+        dataset (Dataset): The dataset to split.
+        cv_split (int, optional): The index of the cross-validation split to use. Defaults to 0.
+        seed (int, optional): The random seed for the split. Defaults to 3245.
+
+    Returns:
+        DatasetDict: A dictionary containing the train, test, and validation sets.
+    """
+    k_folds = KFold(n_splits=5, shuffle=True, random_state=seed)
+    splits = list(k_folds.split(X=dataset))
+    train_indices, test_indices = splits[cv_split][0], splits[cv_split][1]
 
     test_set = dataset.select(test_indices)
     train_set = dataset.select(train_indices)
@@ -37,7 +41,7 @@ def split(dataset: Dataset, cv_split: int = 0) -> DatasetDict:
     split_data_val = train_set.train_test_split(
         test_size=min(int(0.1 * len(train_set)), DEFAULT_VAL_SET_SIZE),
         shuffle=True,
-        seed=DEFAULT_SEED,
+        seed=seed,
     )
 
     return DatasetDict(
@@ -117,43 +121,53 @@ def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
 
     return DatasetDict({"train": train_set, "test": test_set, "validation": val_set})
 
+def filter_dataset_on_targets(dataset: Dataset, all_targets: List[Any], selected_targets: Set[Any]) -> List[int]:
+    """
+    Filter a dataset based on the targets.
 
-def smiles_split_fn(
-    data_path: str, target_column: str, cv_split: int = 0, seed: int = 3453
-):
-    datapath = Path(data_path)
-    parquet_paths = datapath.glob("*.parquet")
+    Args:
+        dataset (Dataset): The dataset to be filtered.
+        all_targets (List[Any]): A list of all targets in the dataset.
+        selected_targets (Set[Any]): A set of targets to be selected.
 
-    data_chunks = list()
-    for parquet_path in parquet_paths:
-        chunk = pd.read_parquet(parquet_path)
-        data_chunks.append(chunk)
-    data = pd.concat(data_chunks)
+    Returns:
+        List[int]: A list of indices of the selected targets in the dataset.
+    """
+    idx = [i for i, target in enumerate(all_targets) if target in selected_targets]
+    return dataset.select(idx)
 
-    unique_smiles = pd.unique(data[target_column])
+
+def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
+    """
+    Split the dataset based on unique values in the target column.
+
+    Args:
+        dataset (Dataset): The dataset to be split.
+        target_column (str): The name of the target column.
+        cv_split (int, optional): The index of the cross-validation split to use. Defaults to 0.
+        seed (int, optional): The random seed to use for splitting. Defaults to 3453.
+    Returns:
+        DatasetDict: A dictionary containing the train, test, and validation datasets.
+    """
+
+    all_targets = dataset[target_column]
+    unique_targets = pd.unique(dataset[target_column])
 
     k_folds = KFold(n_splits=5, shuffle=True, random_state=seed)
-    splits = list(k_folds.split(X=unique_smiles))
+    splits = list(k_folds.split(X=unique_targets))
     train_indices, test_indices = splits[cv_split][0], splits[cv_split][1]
-    train_smiles, test_smiles = (
-        unique_smiles[train_indices],
-        unique_smiles[test_indices],
+
+    train_targets, test_targets = (
+        unique_targets[train_indices],
+        set(unique_targets[test_indices])
     )
 
-    train_set, test_set = (
-        data[data[target_column].isin(train_smiles)],
-        data[data[target_column].isin(test_smiles)],
-    )
-    train_set, val_set = train_test_split(
-        train_set,
-        test_size=min(int(0.05 * len(train_set)), DEFAULT_VAL_SET_SIZE),
-        random_state=seed,
-        shuffle=True,
-    )
+    train_targets, val_targets = train_test_split(train_targets, test_size=min(int(0.05 * len(train_targets)), DEFAULT_VAL_SET_SIZE), random_state=seed, shuffle=True)
+    train_targets, val_targets = set(train_targets), set(val_targets)
 
-    train_set = Dataset.from_pandas(train_set)
-    val_set = Dataset.from_pandas(val_set)
-    test_set = Dataset.from_pandas(test_set)
+    train_set = filter_dataset_on_targets(dataset, all_targets, train_targets)
+    val_set = filter_dataset_on_targets(dataset, all_targets, val_targets)
+    test_set = filter_dataset_on_targets(dataset, all_targets, test_targets)
 
     return DatasetDict({"train": train_set, "test": test_set, "validation": val_set})
 
@@ -162,12 +176,9 @@ def smiles_split_fn(
 def build_dataset_multimodal(
     data_config: Dict[str, Any],
     data_path: str,
-    splitting_procedure: str,
+    splitting: str,
     cv_split: int,
-    augment_names: Optional[str] = None,
-    augment_path: Optional[str] = None,
-    augment_fraction: float = 0.0,
-    augment_model_config: Optional[Dict[str, Any]] = None,
+    augment_config: Optional[Dict[str, Any]] = None
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
     
     if not Path(data_path).is_dir():
@@ -178,33 +189,39 @@ def build_dataset_multimodal(
     dataset_dict = load_dataset("parquet", data_dir=data_path)
 
     # Concatenates all datasets into a single test set
-    if splitting_procedure == "test_only":
+    if splitting == "test_only":
         datasets = list(dataset_dict.values())
         combined_dataset = concatenate_datasets(datasets)
         dataset_dict = DatasetDict({"test": combined_dataset})
 
     # Split based on functinal group occurence. Only relevant for Merck
-    elif splitting_procedure == "func_group_split":
+    elif splitting == "func_group_split":
         dataset_dict = func_split(data_path, cv_split=cv_split, seed=DEFAULT_SEED)
     
     # Split based on unique values in the target column
-    elif splitting_procedure == "unique_target":
+    elif splitting == "unique_target":
+        # Get Target column
         target_column = ""
         for modality_config in data_config.values():
             if modality_config["target"]:
                 target_column = modality_config["column"]
                 break
-        dataset_dict = smiles_split_fn(
-            data_path, target_column, cv_split=cv_split, seed=DEFAULT_SEED
-        )
+        
+        # Combine dataset
+        datasets = list(dataset_dict.values())
+        combined_dataset = concatenate_datasets(datasets)
 
-    # Random Split if dataset is not already split into train/test/val
-    elif len(dataset_dict) == 1:
-        dataset = list(dataset_dict.values())[0]
-        dataset_dict = split(dataset, cv_split)
+        # Split Dataset
+        dataset_dict = target_split(combined_dataset, target_column, cv_split=cv_split, seed=DEFAULT_SEED)
+
+    # Random Split
+    elif splitting == "random":
+        datasets = list(dataset_dict.values())
+        combined_dataset = concatenate_datasets(datasets)
+        dataset_dict = split(combined_dataset, cv_split)
 
     # Sanity check for loading a dataset already split into train/test/val
-    elif len(dataset_dict) == 3: 
+    elif splitting == "given_splits" and len(dataset_dict) == 3:
 
         if set(dataset_dict.keys()) != {"train", "validation", "test"}:
             raise ValueError(
@@ -214,26 +231,13 @@ def build_dataset_multimodal(
     # Raise Error for all edge cases
     else:
         raise ValueError(
-            f"Failsed to load Dataset. Excpected to find three datasets with name ['train', 'validation', 'test'] but found {len(dataset_dict)} with names {list(dataset_dict.keys())}."
+            f"Unknown split {splitting}."
         )
     
+    # Augment
+    dataset_dict['train'] = augment(dataset_dict['train'].select(range(1000)), augment_config)
 
-    
-    if augment_model_config is not None and augment_model_config["apply"]:
-            dataset = augment_model(dataset, augment_model_config)
-
-    if augment_path is not None:
-        augment_data = load_from_disk(augment_path)
-        sample_indices = np.random.choice(
-            range(len(augment_data)), int(len(augment_data) * augment_fraction)
-        )
-        sampled_augment_data = augment_data.select(sample_indices)
-
-        dataset_dict["train"] = concatenate_datasets(
-            [dataset_dict["train"], sampled_augment_data]
-        )
-        dataset_dict["train"] = dataset_dict["train"].shuffle()
-
+    # Rename columns and drop uncessecary
     relevant_columns = set()
     rename_columns = dict()
 
@@ -265,17 +269,5 @@ def build_dataset_multimodal(
         processed_dataset = selected_dataset.rename_columns(rename_columns)
 
         processed_dataset_dict[dataset_key] = processed_dataset
-
-    if augment_names is not None and not test_only:
-        augment_names = augment_names.split("_")  # type: ignore
-        augment_fn = partial(augment, augment_names=augment_names)
-        augmented_train_set = processed_dataset_dict["train"].map(
-            augment_fn,
-            batched=True,
-            batch_size=1,
-            remove_columns=processed_dataset_dict["train"].column_names,
-            num_proc=7,
-        )
-        processed_dataset_dict["train"] = augmented_train_set
 
     return data_config, processed_dataset_dict

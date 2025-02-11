@@ -25,13 +25,13 @@ from mmbart.data.datasets import (  # noqa: F401
 )
 from mmbart.modeling.wrapper import HFWrapper
 from mmbart.trainer.trainer import build_trainer
-from mmbart.utils import calc_sampling_metrics, calculate_training_steps, seed_everything
+from mmbart.utils import calc_sampling_metrics, seed_everything
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="config_predict")
+@hydra.main(version_base=None, config_path="../../../configs", config_name="config_predict")
 def main(config: DictConfig):
 
     seed_everything()
@@ -51,12 +51,8 @@ def main(config: DictConfig):
         data_config,
         data_path=config["data_path"],
         cv_split=config["cv_split"],
-        func_group_split=config["func_group_split"],
-        smiles_split=config["smiles_split"],
-        augment_path=config["augment_path"],
-        augment_fraction=config["augment_fraction"],
-        augment_names=config["augment_names"],
-        augment_model_config=config["augment_model"],
+        splitting=config["splitting"],
+        augment_config=config["augment"]
     )
     logging.info("Build dataset")
 
@@ -97,13 +93,12 @@ def main(config: DictConfig):
 
 
     # Load Model
-    train_steps = calculate_training_steps(data_module, config)
     checkpoint_path = config["model"]["model_checkpoint_path"]
 
     model = HFWrapper(
         data_config=data_config,
         target_tokenizer=target_tokenizer,
-        num_steps=train_steps,
+        num_steps=100,
         **config["model"],
     )
 

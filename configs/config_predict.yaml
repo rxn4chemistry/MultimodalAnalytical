@@ -1,29 +1,22 @@
 # @package _global_
 
 # Define job name
-job_name: test
+job_name: null
 
 # Working directory where everything is stored. Needs to be overriten depending on use
-working_dir: /dccstor/lau_storage/msms_project/multimodal-bart/
+working_dir: null
 
 # Data Arguments
-data_path: /dccstor/lau_storage/msms_project/multimodal-bart/data/
+data_path: null
 preprocessor_path: null
-augment_names: null
-augment_path: null
-augment_fraction: 0.0
-augment_model: null
-finetuning: False
-func_group_split: False
-smiles_split: False
-molecules: True
+
+splitting: random
 cv_split: 0 
+
+finetuning: False
+molecules: True
 mixture: null
 
-model:
-  model_checkpoint_path: null
-# Trainer
-# TODO: convert trainer into config group with choice pl vs hf
 trainer:
   log_dir: ${working_dir}
   task: ${job_name}
@@ -34,15 +27,15 @@ trainer:
 
 defaults:
   - _self_
+  
   # Data/Embedding type can be selected
-  - data: ir/patches # adding a list of modalities here raises hydra error
+  - data: ir/patches 
+
+  - augment: null
 
   - model:
-      - custom_hf_bart # option "encoder" gives error keynotfound "n_features"
+      - custom_hf_bart 
 
   - hydra: default
 
   - debug: null
-
-
-smiles: False
