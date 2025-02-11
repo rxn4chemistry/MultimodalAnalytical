@@ -68,7 +68,7 @@ def calc_sampling_metrics(samples: List[Any], targets: List[str], molecules: boo
     #all_preds = np.stack(prediction_df["predictions"].to_list())
 
     for i in range(n_beams):
-        top_n_acc = float((prediction_df['rank'] <= i).sum() / len(prediction_df) * 100)
+        top_n_acc = float((prediction_df['rank'] <= i).sum() / len(prediction_df))
         metrics[f"Top-{i+1}"] = top_n_acc
 
         if logging:
