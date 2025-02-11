@@ -14,7 +14,7 @@ from transformers import (
     T5ForConditionalGeneration,
 )
 from transformers.generation.logits_process import LogitsProcessor
-from transformers.modeling_outputs import BaseModelOutput, Seq2SeqModelOutput
+from transformers.modeling_outputs import Seq2SeqModelOutput
 
 from mmbart.modeling.decoder import DecodeSampler
 from mmbart.utils import calc_sampling_metrics
@@ -448,15 +448,21 @@ class HFWrapper(pl.LightningModule):
             Dict[str, float]: Dictionary containing the TopN scores
         """
 
-        # Decode
+        # Decode Targets
+        targets[targets == -100] = self.target_tokenizer.pad_token_id
+        targets = self.target_tokenizer.batch_decode(
+            targets, skip_special_tokens=True
+        )
+
+        # Decode Predictions
         decoded_sequences = self.target_tokenizer.batch_decode(
             generated_sequences, skip_special_tokens=True
         )
 
         # Reshape to (batch_size, n_beams)
         decoded_sequences = [decoded_sequences[i*n_beams : (i+1)*n_beams] for i in range(len(decoded_sequences) // n_beams)]
-
-        scores = calc_sampling_metrics(decoded_sequences, targets, molecules=False, logging=False)
+        
+        scores = calc_sampling_metrics(decoded_sequences, targets, molecules=False)
 
         return scores
     
@@ -538,7 +544,7 @@ class HFWrapper(pl.LightningModule):
         generated_sequences = self.generate(batch, n_beams=1)
 
         scores = self.score_val_sequences(
-            generated_sequences, batch["target_smiles"], n_beams=1
+            generated_sequences, batch["target"].T, n_beams=1
         )
 
         val_outputs = {
