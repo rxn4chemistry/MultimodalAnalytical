@@ -24,9 +24,9 @@ def split(dataset: Dataset, cv_split: int = 0, seed: int = 3245) -> DatasetDict:
     Split a dataset into train, test, and validation sets. Allows selection of cv_split.
 
     Args:
-        dataset (Dataset): The dataset to split.
-        cv_split (int, optional): The index of the cross-validation split to use. Defaults to 0.
-        seed (int, optional): The random seed for the split. Defaults to 3245.
+        dataset: The dataset to split.
+        cv_split: The index of the cross-validation split to use. Defaults to 0.
+        seed: The random seed for the split. Defaults to 3245.
 
     Returns:
         DatasetDict: A dictionary containing the train, test, and validation sets.
@@ -126,9 +126,9 @@ def filter_dataset_on_targets(dataset: Dataset, all_targets: List[Any], selected
     Filter a dataset based on the targets.
 
     Args:
-        dataset (Dataset): The dataset to be filtered.
-        all_targets (List[Any]): A list of all targets in the dataset.
-        selected_targets (Set[Any]): A set of targets to be selected.
+        dataset: The dataset to be filtered.
+        all_targets: A list of all targets in the dataset.
+        selected_targets: A set of targets to be selected.
 
     Returns:
         List[int]: A list of indices of the selected targets in the dataset.
@@ -142,10 +142,10 @@ def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: 
     Split the dataset based on unique values in the target column.
 
     Args:
-        dataset (Dataset): The dataset to be split.
-        target_column (str): The name of the target column.
-        cv_split (int, optional): The index of the cross-validation split to use. Defaults to 0.
-        seed (int, optional): The random seed to use for splitting. Defaults to 3453.
+        dataset: The dataset to be split.
+        target_column: The name of the target column.
+        cv_split: The index of the cross-validation split to use. Defaults to 0.
+        seed: The random seed to use for splitting. Defaults to 3453.
     Returns:
         DatasetDict: A dictionary containing the train, test, and validation datasets.
     """
@@ -235,7 +235,7 @@ def build_dataset_multimodal(
         )
     
     # Augment
-    dataset_dict['train'] = augment(dataset_dict['train'].select(range(1000)), augment_config)
+    dataset_dict['train'] = augment(dataset_dict['train'], augment_config)
 
     # Rename columns and drop uncessecary
     relevant_columns = set()

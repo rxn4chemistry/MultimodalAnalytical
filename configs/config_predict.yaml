@@ -31,7 +31,7 @@ defaults:
   # Data/Embedding type can be selected
   - data: ir/patches 
 
-  - augment: null
+  - augment: no_augment
 
   - model:
       - custom_hf_bart 

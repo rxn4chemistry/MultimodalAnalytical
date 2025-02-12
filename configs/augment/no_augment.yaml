@@ -1,0 +1,8 @@
+augment_column: null
+
+# Additional augmented data to add to training set
+augment_data_path: null
+
+# Augmentations to perform on augment_column
+augmentations:
+  
