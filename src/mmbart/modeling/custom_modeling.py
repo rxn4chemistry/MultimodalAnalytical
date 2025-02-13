@@ -16,12 +16,13 @@
 
 """PyTorch BART model."""
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.utils.checkpoint
 from torch import nn
 from transformers.activations import ACT2FN
+from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPastAndCrossAttentions
 from transformers.models.bart.configuration_bart import BartConfig
 from transformers.models.bart.modeling_bart import (
     BART_ATTENTION_CLASSES,
@@ -244,6 +245,32 @@ class CustomBartEncoder(BartEncoder):
 
         del self.layers
         self.layers = nn.ModuleList([PreLayerNormBartEncoderLayer(config) for _ in range(config.encoder_layers)])
+        self.norm = nn.LayerNorm(config.d_model)
+
+    def forward(self,
+        input_ids: torch.LongTensor = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, BaseModelOutput]:
+        """
+        Overwrite forward method of BartEncoder to add layer normalization after layers.
+        """
+        
+        output = super().forward(input_ids,
+                                 attention_mask,
+                                 head_mask,
+                                 inputs_embeds,
+                                 output_attentions,
+                                 output_hidden_states,
+                                 return_dict)
+        
+        output[0] = self.norm(output[0])
+        return output
+
 
 class CustomBartDecoder(BartDecoder):
     """
@@ -255,6 +282,42 @@ class CustomBartDecoder(BartDecoder):
 
         del self.layers
         self.layers = nn.ModuleList([PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)])
+        self.norm = nn.LayerNorm(config.d_model)
+    
+    def forward(
+        self,
+        input_ids: torch.LongTensor = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.LongTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, BaseModelOutputWithPastAndCrossAttentions]:
+        """
+        Overwrite forward method of BartDecoder to add layer normalization after layers.
+        """
+        
+        output = super.forward(input_ids,
+                               attention_mask,
+                               encoder_hidden_states,
+                               encoder_attention_mask,
+                               head_mask,
+                               cross_attn_head_mask,
+                               past_key_values,
+                               inputs_embeds,
+                               use_cache,
+                               output_attentions,
+                               output_hidden_states,
+                               return_dict)
+        
+        output[0] = self.norm(output[0])
+        return output
 
 
 class CustomBartModel(BartModel):
