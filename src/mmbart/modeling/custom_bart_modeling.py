@@ -26,6 +26,8 @@ from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPa
 from transformers.models.bart.configuration_bart import BartConfig
 from transformers.models.bart.modeling_bart import (
     BART_ATTENTION_CLASSES,
+    BartEncoderLayer,
+    BartDecoderLayer,
     BartDecoder,
     BartEncoder,
     BartForConditionalGeneration,
@@ -38,24 +40,82 @@ from transformers.utils import (
 logger = logging.get_logger(__name__)
 
 
-class PreLayerNormBartEncoderLayer(nn.Module):
-    def __init__(self, config: BartConfig):
-        super().__init__()
-        self.embed_dim = config.d_model
+class CustomBartConfig(BartConfig):
+    """
+    Inherits BartConfig. Allows addition of custom fields.
+    """
 
-        self.self_attn = BART_ATTENTION_CLASSES[config._attn_implementation](
-            embed_dim=self.embed_dim,
-            num_heads=config.encoder_attention_heads,
-            dropout=config.attention_dropout,
-            config=config,
-        )
-        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.dropout = config.dropout
-        self.activation_fn = ACT2FN[config.activation_function]
-        self.activation_dropout = config.activation_dropout
-        self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
-        self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
-        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+    def __init__(
+        self,
+        vocab_size: int = 50265,
+        max_position_embeddings: int = 1024,
+        encoder_layers: int = 12,
+        encoder_ffn_dim: int = 4096,
+        encoder_attention_heads: int = 16,
+        decoder_layers: int = 12,
+        decoder_ffn_dim: int = 4096,
+        decoder_attention_heads: int = 16,
+        encoder_layerdrop: float = 0.0,
+        decoder_layerdrop: float = 0.0,
+        activation_function: str = "gelu",
+        d_model: int = 1024,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.0,
+        activation_dropout: float = 0.0,
+        init_std: float = 0.02,
+        classifier_dropout: float = 0.0,
+        scale_embedding: bool = False,
+        use_cache: bool = True,
+        num_labels: int = 3,
+        pad_token_id: int = 1,
+        bos_token_id: int = 0,
+        eos_token_id: int = 2,
+        is_encoder_decoder: bool = True,
+        decoder_start_token_id: float = 2,
+        forced_eos_token_id: int = 2,
+        final_layer_norm: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Same as HF Bart Config with the addition of the final_layer_norm argument.
+        """
+
+        super().__init__(vocab_size,
+                         max_position_embeddings,
+                         encoder_layers,
+                         encoder_ffn_dim,
+                         encoder_attention_heads,
+                         decoder_layers,
+                         decoder_ffn_dim,
+                         decoder_attention_heads,
+                         encoder_layerdrop,
+                         decoder_layerdrop,
+                         activation_function,
+                         d_model,
+                         dropout,
+                         attention_dropout,
+                         activation_dropout,
+                         init_std,
+                         classifier_dropout,
+                         scale_embedding,
+                         use_cache,
+                         num_labels,
+                         pad_token_id,
+                         bos_token_id,
+                         eos_token_id,
+                         is_encoder_decoder,
+                         decoder_start_token_id,
+                         forced_eos_token_id,
+                         **kwargs,
+                         )
+        
+        self.final_layer_norm = final_layer_norm
+        
+
+
+
+
+class PreLayerNormBartEncoderLayer(BartEncoderLayer):
 
     def forward(
         self,
@@ -65,6 +125,8 @@ class PreLayerNormBartEncoderLayer(nn.Module):
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.FloatTensor, Optional[torch.FloatTensor]]:
         """
+        Changes Normalisation order from Post- to Pre-layer normalisation.
+
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
             attention_mask (`torch.FloatTensor`): attention mask of size
@@ -112,35 +174,7 @@ class PreLayerNormBartEncoderLayer(nn.Module):
         return outputs
 
 
-class PreLayerNormBartDecoderLayer(nn.Module):
-    def __init__(self, config: BartConfig):
-        super().__init__()
-        self.embed_dim = config.d_model
-
-        self.self_attn = BART_ATTENTION_CLASSES[config._attn_implementation](
-            embed_dim=self.embed_dim,
-            num_heads=config.decoder_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=True,
-            is_causal=True,
-            config=config,
-        )
-        self.dropout = config.dropout
-        self.activation_fn = ACT2FN[config.activation_function]
-        self.activation_dropout = config.activation_dropout
-
-        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.encoder_attn = BART_ATTENTION_CLASSES[config._attn_implementation](
-            self.embed_dim,
-            config.decoder_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=True,
-            config=config,
-        )
-        self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
-        self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
-        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+class PreLayerNormBartDecoderLayer(BartDecoderLayer):
 
     def forward(
         self,
@@ -155,20 +189,22 @@ class PreLayerNormBartDecoderLayer(nn.Module):
         use_cache: Optional[bool] = True,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         """
+        Changes Normalisation order from Post- to Pre-layer normalisation.
+
         Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
-            attention_mask (`torch.FloatTensor`): attention mask of size
+            hidden_states: input to the layer of shape `(batch, seq_len, embed_dim)`
+            attention_mask: attention mask of size
                 `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
-            encoder_hidden_states (`torch.FloatTensor`):
+            encoder_hidden_states:
                 cross attention input to the layer of shape `(batch, seq_len, embed_dim)`
-            encoder_attention_mask (`torch.FloatTensor`): encoder attention mask of size
+            encoder_attention_mask: encoder attention mask of size
                 `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
-            layer_head_mask (`torch.FloatTensor`): mask for attention heads in a given layer of size
+            layer_head_mask: mask for attention heads in a given layer of size
                 `(encoder_attention_heads,)`.
-            cross_attn_layer_head_mask (`torch.FloatTensor`): mask for cross-attention heads in a given layer of
+            cross_attn_layer_head_mask: mask for cross-attention heads in a given layer of
                 size `(decoder_attention_heads,)`.
-            past_key_value (`Tuple(torch.FloatTensor)`): cached past key and value projection states
-            output_attentions (`bool`, *optional*):
+            past_key_value: cached past key and value projection states
+            output_attentions:
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
@@ -245,7 +281,7 @@ class CustomBartEncoder(BartEncoder):
 
         del self.layers
         self.layers = nn.ModuleList([PreLayerNormBartEncoderLayer(config) for _ in range(config.encoder_layers)])
-        self.norm = nn.LayerNorm(config.d_model)
+        self.norm = nn.LayerNorm(config.d_model) if config.final_layer_norm else None
 
     def forward(self,
         input_ids: torch.LongTensor = None,
@@ -268,7 +304,9 @@ class CustomBartEncoder(BartEncoder):
                                  output_hidden_states,
                                  return_dict)
         
-        output[0] = self.norm(output[0])
+
+        if self.norm:
+            output['last_hidden_state'] = self.norm(output['last_hidden_state'])
         return output
 
 
@@ -303,7 +341,7 @@ class CustomBartDecoder(BartDecoder):
         Overwrite forward method of BartDecoder to add layer normalization after layers.
         """
         
-        output = super.forward(input_ids,
+        output = super().forward(input_ids,
                                attention_mask,
                                encoder_hidden_states,
                                encoder_attention_mask,
@@ -316,7 +354,7 @@ class CustomBartDecoder(BartDecoder):
                                output_hidden_states,
                                return_dict)
         
-        output[0] = self.norm(output[0])
+        output['last_hidden_state'] = self.norm(output['last_hidden_state'])
         return output
 
 

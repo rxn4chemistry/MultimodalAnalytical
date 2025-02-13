@@ -9,6 +9,7 @@ decoder_layers: 6
 encoder_ffn_dim: 2048
 decoder_ffn_dim: 2048
 multimodal_norm: True
+final_layer_norm: False
 
 optimiser: adam
 lr: 1e-4

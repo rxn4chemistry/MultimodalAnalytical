@@ -17,7 +17,7 @@ from transformers.modeling_outputs import Seq2SeqModelOutput
 
 from mmbart.utils import calc_sampling_metrics
 
-from .custom_modeling import CustomBartForConditionalGeneration
+from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
 from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
@@ -96,7 +96,7 @@ def load_custom_bart_model(
         BartForConditionalGeneration: Loaded model
     """
 
-    model_config = AutoConfig.from_pretrained(
+    model_config = CustomBartConfig.from_pretrained(
         model_name,
         vocab_size=target_tokenizer.vocab_size,
         pad_token_id=target_tokenizer.pad_token_id,
