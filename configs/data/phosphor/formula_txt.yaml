@@ -1,12 +1,16 @@
-Phosphor_NMR:
-  type: 1D_patches
-  column: phosphor_shift
+Formula:
+  type: text
+  column: Formula
   target: False
   preprocessor_arguments:
-    patch_size: 1
-    masking: False
-    interplation_merck: False
-    encoding_type: linear
+    tokenizer: formula
+    tokenizer_regex: ([A-Z]{1}[a-z]?[0-9]*)
+Phosphor_NMR:
+  type: text
+  column: phosphor_shift_txt
+  target: False
+  preprocessor_arguments:
+    tokenizer_regex: \s*
 Smiles:
   type: text
   column: smiles_1

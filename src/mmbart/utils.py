@@ -27,7 +27,7 @@ def clean_sample(sample: str, canonicalise: bool) -> str:
         clean string
     """
 
-    sample = sample.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").strip()
+    sample = sample.replace("<bos>", "").replace("<pad>", "").replace("<eos>", "").replace(" ", '')
 
     if canonicalise:
         sample = sample.replace(" ", "")

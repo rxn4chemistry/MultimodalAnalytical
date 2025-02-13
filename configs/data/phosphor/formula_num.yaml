@@ -13,6 +13,7 @@ Phosphor_NMR:
     patch_size: 1
     masking: False
     interplation_merck: False
+    encoding_type: linear
 Smiles:
   type: text
   column: smiles_1

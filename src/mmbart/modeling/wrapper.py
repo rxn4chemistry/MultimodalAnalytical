@@ -353,7 +353,12 @@ class HFWrapper(pl.LightningModule):
 
         inputs_embeds = self.multimodal_embedding(input_ids)
 
-        encoder_outputs = self.hf_model.model.encoder(
+        if hasattr(self.hf_model, 'model'):
+            encoder = self.hf_model.model.encoder
+        else:
+            encoder = self.hf_model.encoder
+
+        encoder_outputs = encoder(
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
         )

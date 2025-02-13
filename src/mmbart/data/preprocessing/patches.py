@@ -24,6 +24,8 @@ class PatchPreprocessor:
     overlap: int = field(init=True, default=1)
     derivative: bool = field(init=True, default=False)
 
+    encoding_type: str = field(init=True, default='')
+
     def initialise(
         self,
         sampled_dataset: Dataset,
