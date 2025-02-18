@@ -21,15 +21,13 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from transformers.activations import ACT2FN
 from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPastAndCrossAttentions
 from transformers.models.bart.configuration_bart import BartConfig
 from transformers.models.bart.modeling_bart import (
-    BART_ATTENTION_CLASSES,
-    BartEncoderLayer,
-    BartDecoderLayer,
     BartDecoder,
+    BartDecoderLayer,
     BartEncoder,
+    BartEncoderLayer,
     BartForConditionalGeneration,
     BartModel,
 )
@@ -117,11 +115,20 @@ class CustomBartConfig(BartConfig):
 
 class PreLayerNormBartEncoderLayer(BartEncoderLayer):
 
+    def __init__(self, config: BartConfig):
+        super().__init__(config)
+
+        del self.self_attn
+        self.self_attn = nn.MultiheadAttention(embed_dim=self.embed_dim,
+            num_heads=config.encoder_attention_heads,
+            dropout=config.attention_dropout,
+        )
+
     def forward(
         self,
         hidden_states: torch.FloatTensor,
         attention_mask: torch.FloatTensor,
-        layer_head_mask: torch.FloatTensor,
+        layer_head_mask: torch.FloatTensor, # noqa: ARG002
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.FloatTensor, Optional[torch.FloatTensor]]:
         """
@@ -140,12 +147,13 @@ class PreLayerNormBartEncoderLayer(BartEncoderLayer):
         #hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 1
         residual = hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 2
-        hidden_states, attn_weights, _ = self.self_attn(
-            hidden_states=hidden_states,
-            attention_mask=attention_mask,
-            layer_head_mask=layer_head_mask,
-            output_attentions=output_attentions,
+
+        hidden_states = hidden_states.transpose(1, 0)
+        hidden_states, attn_weights = self.self_attn(
+            hidden_states, hidden_states, hidden_states, attn_mask=None, key_padding_mask=attention_mask[:, :, 0].squeeze(1)
         )
+        hidden_states = hidden_states.transpose(0, 1)
+
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
         #hidden_states = self.self_attn_layer_norm(hidden_states) # Original code
