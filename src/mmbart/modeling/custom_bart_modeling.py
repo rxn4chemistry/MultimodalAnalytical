@@ -72,6 +72,7 @@ class CustomBartConfig(BartConfig):
         decoder_start_token_id: float = 2,
         forced_eos_token_id: int = 2,
         final_layer_norm: bool = False,
+        batch_size: int = 128,
         **kwargs,
     ) -> None:
         """
@@ -108,9 +109,118 @@ class CustomBartConfig(BartConfig):
                          )
         
         self.final_layer_norm = final_layer_norm
+        self.batch_size = batch_size
         
 
+class PreNormEncoderLayer(nn.TransformerEncoderLayer):
 
+    def __init__(self, config: BartConfig):
+
+        super().__init__(
+            d_model=config.d_model,
+            nhead=config.encoder_attention_heads,
+            dim_feedforward=config.encoder_ffn_dim,
+            dropout=config.dropout,
+            activation='gelu'
+        )
+        self.batch_size = config.batch_size
+
+    def forward(self,
+                hidden_states: torch.FloatTensor,
+                attention_mask: torch.FloatTensor,
+                layer_head_mask: torch.FloatTensor, # noqa: ARG002
+                output_attentions: Optional[bool] = False):
+        
+        if hidden_states.shape[0] == self.batch_size:
+            hidden_states = hidden_states.transpose(1, 0)
+        
+        if len(attention_mask.shape) == 4:
+            attention_mask = attention_mask[:, :, 0].squeeze(1)
+
+        # Self attention block
+        att = self.norm1(hidden_states)
+        att = self.self_attn(
+            att, att, att, attn_mask=None, key_padding_mask=attention_mask
+        )[0]
+        att = hidden_states + self.dropout1(att)
+
+        # Feedforward block
+        out = self.norm2(att)
+        out = self.linear2(self.dropout(self.activation(self.linear1(out))))
+        out = att + self.dropout2(out)
+        return (out,)
+    
+
+class PreNormDecoderLayer(nn.TransformerDecoderLayer):
+
+    def __init__(self, config: BartConfig):
+
+        super().__init__(
+            d_model=config.d_model,
+            nhead=config.decoder_attention_heads,
+            dim_feedforward=config.decoder_ffn_dim,
+            dropout=config.dropout,
+            activation='gelu'
+        )
+        self.batch_size = config.batch_size
+
+    
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = True,
+    ):
+
+        if hidden_states.shape[0] == self.batch_size:
+            hidden_states = hidden_states.transpose(1, 0)
+
+        if len(attention_mask.shape) == 4:
+            attention_mask = attention_mask[:, :, -1, :].squeeze(1)
+
+        if encoder_hidden_states.shape[0] == self.batch_size:
+            encoder_hidden_states = encoder_hidden_states.transpose(1, 0)
+
+        if len(encoder_attention_mask.shape) == 4:
+            encoder_attention_mask = encoder_attention_mask[:, :, 0].squeeze(1)
+
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(hidden_states.shape[0])        
+        memory_mask = None
+
+
+        # Self attention block
+        query = self.norm1(hidden_states)
+        query = self.self_attn(
+            query,
+            query,
+            query,
+            attn_mask=tgt_mask,
+            key_padding_mask=attention_mask,
+        )[0]
+        query = hidden_states + self.dropout1(query)
+
+        # Context attention block
+        att = self.norm2(query)
+        att = self.multihead_attn(
+            att,
+            encoder_hidden_states,
+            encoder_hidden_states,
+            attn_mask=memory_mask,
+            key_padding_mask=encoder_attention_mask,
+        )[0]
+        att = query + self.dropout2(att)
+
+        # Feedforward block
+        out = self.norm3(att)
+        out = self.linear2(self.dropout(self.activation(self.linear1(out))))
+        out = att + self.dropout3(out)
+        return (out, )
 
 
 class PreLayerNormBartEncoderLayer(BartEncoderLayer):
@@ -288,7 +398,7 @@ class CustomBartEncoder(BartEncoder):
         super().__init__(config, embed_tokens)
 
         del self.layers
-        self.layers = nn.ModuleList([PreLayerNormBartEncoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList([PreNormEncoderLayer(config) for _ in range(config.encoder_layers)])
         self.norm = nn.LayerNorm(config.d_model) if config.final_layer_norm else None
 
     def forward(self,
@@ -312,7 +422,7 @@ class CustomBartEncoder(BartEncoder):
                                  output_hidden_states,
                                  return_dict)
         
-
+        output['last_hidden_state'] = output['last_hidden_state'].transpose(1, 0)
         if self.norm:
             output['last_hidden_state'] = self.norm(output['last_hidden_state'])
         return output
@@ -327,8 +437,8 @@ class CustomBartDecoder(BartDecoder):
         super().__init__(config, embed_tokens)
 
         del self.layers
-        self.layers = nn.ModuleList([PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)])
-        self.norm = nn.LayerNorm(config.d_model)
+        self.layers = nn.ModuleList([PreNormDecoderLayer(config) for _ in range(config.encoder_layers)])
+        self.norm = nn.LayerNorm(config.d_model) if config.final_layer_norm else None
     
     def forward(
         self,
@@ -362,7 +472,10 @@ class CustomBartDecoder(BartDecoder):
                                output_hidden_states,
                                return_dict)
         
-        output['last_hidden_state'] = self.norm(output['last_hidden_state'])
+        output['last_hidden_state'] = output['last_hidden_state'].transpose(1, 0)
+        
+        if self.norm:
+            output['last_hidden_state'] = self.norm(output['last_hidden_state'])
         return output
 
 
