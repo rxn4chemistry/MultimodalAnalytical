@@ -181,16 +181,16 @@ class PreNormDecoderLayer(nn.TransformerDecoderLayer):
         if hidden_states.shape[0] == self.batch_size:
             hidden_states = hidden_states.transpose(1, 0)
 
-        if len(attention_mask.shape) == 4:
+        if isinstance(attention_mask, torch.Tensor) and len(attention_mask.shape) == 4:
             attention_mask = attention_mask[:, :, -1, :].squeeze(1)
 
         if encoder_hidden_states.shape[0] == self.batch_size:
             encoder_hidden_states = encoder_hidden_states.transpose(1, 0)
 
-        if len(encoder_attention_mask.shape) == 4:
+        if isinstance(attention_mask, torch.Tensor) and len(encoder_attention_mask.shape) == 4:
             encoder_attention_mask = encoder_attention_mask[:, :, 0].squeeze(1)
 
-        tgt_mask = nn.Transformer.generate_square_subsequent_mask(hidden_states.shape[0])        
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(hidden_states.shape[0], device=hidden_states.device)        
         memory_mask = None
 
 
@@ -477,6 +477,196 @@ class CustomBartDecoder(BartDecoder):
         if self.norm:
             output['last_hidden_state'] = self.norm(output['last_hidden_state'])
         return output
+    
+
+
+from transformers.modeling_utils import PreTrainedModel
+from .utils import MultimodalEmbedding
+from transformers.modeling_outputs import Seq2SeqLMOutput
+from typing import Dict, Any
+from transformers.generation import GenerationMixin
+
+
+class CustomEncoder(nn.TransformerEncoder):
+
+    def __init__(self,
+                 decoder_layer, 
+                 n_layers, 
+                 norm: Optional[nn.LayerNorm] = None,):
+        super().__init__(decoder_layer, n_layers, norm)
+        self.main_input_name = "inputs_embeds"
+
+    def forward(self, 
+                inputs_embeds: torch.FloatTensor,
+                attention_mask: Optional[torch.Tensor] = None,
+    ) -> BaseModelOutput:
+        
+        if isinstance(attention_mask, torch.Tensor):
+            src_key_padding_mask = attention_mask.clone().float()
+            src_key_padding_mask[src_key_padding_mask == 0] = float("-Inf")
+            src_key_padding_mask[src_key_padding_mask == 1] = 0
+        else:
+            src_key_padding_mask = torch.full((inputs_embeds.shape[:1]), 0)
+        
+        output = super().forward(inputs_embeds, src_key_padding_mask=src_key_padding_mask)
+
+        output_dict = BaseModelOutput(last_hidden_state=output)
+        output_dict['attention_mask'] = attention_mask
+
+        return output_dict
+    
+class CustomDecoder(nn.TransformerDecoder):
+
+    def __init__(self,
+                 decoder_layer, 
+                 n_layers, 
+                 norm: Optional[nn.LayerNorm] = None,
+                 target_modality: Optional[str] = None,
+                 embedding_layer: Optional[MultimodalEmbedding] = None
+                 ):
+        
+        super().__init__(decoder_layer, n_layers, norm)
+        
+        self.embedding = embedding_layer
+        self.target_modality = target_modality
+
+
+    def forward(self, 
+                input_ids: torch.LongTensor = None,
+                attention_mask: Optional[torch.Tensor] = None,
+                encoder_hidden_states: Optional[torch.FloatTensor] = None,
+                encoder_attention_mask: Optional[torch.LongTensor] = None,
+                head_mask: Optional[torch.Tensor] = None,
+                cross_attn_head_mask: Optional[torch.Tensor] = None,
+                past_key_values: Optional[List[torch.FloatTensor]] = None,
+                inputs_embeds: Optional[torch.FloatTensor] = None,
+                use_cache: Optional[bool] = None,
+                output_attentions: Optional[bool] = None,
+                output_hidden_states: Optional[bool] = None,
+                return_dict: Optional[bool] = None,
+    ) -> BaseModelOutputWithPastAndCrossAttentions:
+        
+        if isinstance(encoder_attention_mask, torch.Tensor):
+            encoder_attention_mask = encoder_attention_mask.float()
+            encoder_attention_mask[encoder_attention_mask == 0] = float("-Inf")
+            encoder_attention_mask[encoder_attention_mask == 1] = 0
+        else:
+            encoder_attention_mask = torch.full((encoder_hidden_states.shape[:2]), 0.0, device=input_ids.device)
+        
+        if isinstance(attention_mask, torch.Tensor):
+            attention_mask = attention_mask.float()
+            attention_mask[attention_mask == 0] = float("-Inf")
+            attention_mask[attention_mask == 1] = 0
+        else:
+            attention_mask = torch.full(input_ids.shape, 0.0, device=input_ids.device)
+        
+        decoder_embeds = self.embedding({self.target_modality: input_ids}, pos_encoding=True)
+        seq_len = input_ids.shape[1]
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(seq_len, device=decoder_embeds.device)
+
+        decoder_output = super().forward(
+            decoder_embeds,
+            encoder_hidden_states,
+            tgt_mask=tgt_mask,
+            tgt_key_padding_mask=attention_mask,
+            memory_key_padding_mask=encoder_attention_mask.clone(),
+        )
+
+        return BaseModelOutputWithPastAndCrossAttentions(last_hidden_state=decoder_output)
+
+
+
+class CustomModel(PreTrainedModel, GenerationMixin):
+
+    def __init__(self,
+                 target_modality,
+                 target_tokenizer,
+                 config: CustomBartConfig,
+                 multimodal_embedding_layer: MultimodalEmbedding
+                 ):
+        
+        super().__init__(config)
+
+        self.target_modality = target_modality
+        self.decoder_vocab_size = target_tokenizer.vocab_size
+
+        # Embedding
+        self.embedding = multimodal_embedding_layer
+        
+        # Encoder
+        enc_norm = nn.LayerNorm(config.d_model)
+        enc_layer = nn.TransformerEncoderLayer(config.d_model, 
+                                               config.encoder_attention_heads, 
+                                               config.encoder_ffn_dim, 
+                                               config.dropout, 
+                                               config.activation_function, 
+                                               norm_first=True,
+                                               batch_first=True)
+        self.encoder = CustomEncoder(enc_layer, config.encoder_layers, norm=enc_norm)
+
+        # Decoder
+        dec_norm = nn.LayerNorm(config.d_model)
+        dec_layer = nn.TransformerDecoderLayer(config.d_model, 
+                                               config.decoder_attention_heads, 
+                                               config.decoder_ffn_dim, 
+                                               config.dropout, 
+                                               config.activation_function, 
+                                               norm_first=True,
+                                               batch_first=True)
+        self.decoder = CustomDecoder(dec_layer, 
+                                     config.decoder_layers, 
+                                     norm=dec_norm, 
+                                     target_modality=self.target_modality,
+                                     embedding_layer=self.embedding)
+
+        # LM Head
+        self.token_ff = nn.Linear(config.d_model, self.decoder_vocab_size)
+
+    
+
+    def forward(
+        self,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Dict[str, Any] = None,
+        decoder_input_ids: Optional[torch.Tensor] = None,
+        decoder_attention_mask: Optional[torch.LongTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = False,
+        return_dict: Optional[bool] = False
+    ) -> Seq2SeqLMOutput:
+        
+        # Encode
+        if not isinstance(encoder_outputs, dict):
+            encoder_outputs = self.encoder(inputs_embeds, attention_mask=attention_mask, )
+
+        # Decode
+        decoder_output = self.decoder(
+            input_ids = decoder_input_ids,
+            attention_mask = decoder_attention_mask,
+            encoder_hidden_states = encoder_outputs['last_hidden_state'],
+            encoder_attention_mask = attention_mask,
+        )
+
+        # Feedforward
+        logits = self.token_ff(decoder_output['last_hidden_state'])
+
+        if labels is not None:
+            labels = labels.to(logits.device)
+            loss_fct = nn.CrossEntropyLoss()
+            masked_lm_loss = loss_fct(logits.view(-1, self.decoder_vocab_size), labels.view(-1))
+        else:
+            masked_lm_loss = None
+
+
+        return Seq2SeqLMOutput(
+            loss=masked_lm_loss,
+            logits=logits,
+            decoder_hidden_states=decoder_output,
+            encoder_hidden_states=encoder_outputs['last_hidden_state'],
+        )
+
+
 
 
 class CustomBartModel(BartModel):

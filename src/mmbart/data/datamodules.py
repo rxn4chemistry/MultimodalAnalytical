@@ -191,6 +191,7 @@ class MultiModalDataCollator:
             "BartForConditionalGeneration",
             "CustomBartForConditionalGeneration",
             "T5ForConditionalGeneration",
+            "CustomModel"
         ]:
             tokenized_label_input_ids = target_tensor["input_ids"].transpose(0, 1)
 

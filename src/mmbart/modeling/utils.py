@@ -33,6 +33,8 @@ class MultimodalEmbedding(nn.Module):
             if self.embedding_norm:
                 self.embedding_norm_dict[modality] = nn.LayerNorm(self.d_model)
 
+        self.positional_encodings = PositionalEncoding(d_model)
+
     def _create_embedding(
         self, modality_config: Dict[str, Any]
     ) -> Union[nn.Embedding, nn.Linear]:
@@ -100,7 +102,7 @@ class MultimodalEmbedding(nn.Module):
 
         return embedding_layer
 
-    def forward(self, token_ids: Dict[str, Any]) -> torch.Tensor:
+    def forward(self, token_ids: Dict[str, Any], pos_encoding: bool = False) -> torch.Tensor:
         """Perform Embedding. Handles embedding, layer norm and optionally XVal.
         Args:
             token_ids: Input modalities
@@ -133,6 +135,10 @@ class MultimodalEmbedding(nn.Module):
             raise ValueError("At least one modality needs to be in token_ids.")
 
         embedding_tensor = torch.cat(embedding, dim=1)
+
+        if pos_encoding:
+            embedding_tensor = embedding_tensor + self.positional_encodings(embedding_tensor)
+
         return embedding_tensor
 
 

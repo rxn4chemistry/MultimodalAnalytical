@@ -17,7 +17,7 @@ from transformers.modeling_outputs import Seq2SeqModelOutput
 
 from mmbart.utils import calc_sampling_metrics
 
-from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
+from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration, CustomModel
 from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
@@ -123,6 +123,7 @@ def load_custom_bart_model(
     if multimodal_norm:
         dummy_layer = DummyLayer()
         custom_bart_model.model.encoder.layernorm_embedding = dummy_layer
+        custom_bart_model.model.decoder.layernorm_embedding = dummy_layer
 
     # Replace learned pos embedding
     pos_embeds = PositionalEncoding(model_config.d_model)
@@ -130,6 +131,36 @@ def load_custom_bart_model(
     custom_bart_model.model.decoder.embed_positions = pos_embeds
 
     return custom_bart_model, multimodal_embedding_layer
+
+
+def load_custom_model(
+    model_name: str,
+    target_tokenizer: AutoTokenizer,
+    target_modality: str,
+    data_config: Dict[str, Any],
+    multimodal_norm: bool,
+    **kwargs,
+) -> Tuple[CustomModel, MultimodalEmbedding]:
+    
+    model_config = CustomBartConfig.from_pretrained(
+        model_name,
+        vocab_size=target_tokenizer.vocab_size,
+        pad_token_id=target_tokenizer.pad_token_id,
+        bos_token_id=target_tokenizer.bos_token_id,
+        eos_token_id=target_tokenizer.eos_token_id,
+        decoder_start_token_id=target_tokenizer.bos_token_id,
+        forced_eos_token_id=target_tokenizer.eos_token_id,
+        **kwargs,
+    )
+
+    multimodal_embedding_layer = MultimodalEmbedding(
+        data_config, model_config.d_model, multimodal_norm
+    )
+
+    custom_model = CustomModel(target_modality, target_tokenizer, model_config, multimodal_embedding_layer)
+
+    return custom_model, multimodal_embedding_layer
+    
 
 def load_t5_model(
     model_name: str,
@@ -178,6 +209,7 @@ MODEL_REGISTRY: Dict[str, Callable[..., Tuple[PreTrainedModel, MultimodalEmbeddi
     T5ForConditionalGeneration.__name__: load_t5_model,
     BartForConditionalGeneration.__name__: load_bart_model,
     CustomBartForConditionalGeneration.__name__: load_custom_bart_model,
+    CustomModel.__name__: load_custom_model
 }
 
 

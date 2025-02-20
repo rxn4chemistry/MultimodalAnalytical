@@ -20,6 +20,7 @@ def build_trainer(
         "BartForConditionalGeneration",
         "CustomBartForConditionalGeneration",
         "T5ForConditionalGeneration",
+        "CustomModel"
     ]:
         checkpoint_callback = ModelCheckpoint(
             monitor="val_molecular_accuracy", save_last=True, save_top_k=5, mode="max"
