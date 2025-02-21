@@ -33,7 +33,7 @@ class CustomEncoder(nn.TransformerEncoder):
     def forward(self, # type: ignore
                 inputs_embeds: torch.FloatTensor,
                 attention_mask: Optional[torch.Tensor] = None,
-    ) -> BaseModelOutput: 
+    ) -> BaseModelOutput:
         """Forward. Converts input from HF into a form compatible w. torch Transformer.
         Args:
             inputs_embeds: Input embeddings
