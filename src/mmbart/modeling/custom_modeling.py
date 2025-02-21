@@ -29,6 +29,7 @@ class CustomConfig(PretrainedConfig):
         decoder_ffn_dim: int = 2048,
         dropout: float = 0.1,
         activation_function: str | Callable = 'gelu',
+        gated_linear: bool = False,
         positional_encoding_type: str = 'sin_cos',
         bos_token_id: int = 2,
         eos_token_id: int = 3,
@@ -50,6 +51,7 @@ class CustomConfig(PretrainedConfig):
 
         self.dropout = dropout
         self.activation_function = activation_function
+        self.gated_linear = gated_linear
         self.positional_encoding_type = positional_encoding_type
 
         self.bos_token_id = bos_token_id
@@ -68,6 +70,89 @@ class CustomConfig(PretrainedConfig):
         )
 
 
+class CustomEncoderLayer(nn.TransformerEncoderLayer):
+    """Encoder layer with option for gated feedforward."""
+
+    def __init__(self, 
+                 d_model: int, 
+                 encoder_attention_heads: int,
+                 encoder_ffn_dim: int,
+                 dropout: float,
+                 activation_function: str,
+                 gated_linear: bool = False):
+        
+        super().__init__(d_model=d_model, 
+                       nhead=encoder_attention_heads, 
+                       dim_feedforward=encoder_ffn_dim, 
+                       dropout=dropout,
+                       activation=activation_function,
+                       batch_first=True,
+                       norm_first=True)
+
+        self.gated_linear = gated_linear
+        if gated_linear:
+            self.gate = nn.Linear(d_model, encoder_ffn_dim, bias=True)
+            self._ff_block = self._ff_block_gated
+
+    def _ff_block_gated(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Gated Feedforward block. 
+        Args:
+            hidden_states
+        Returns:
+            hidden_state with gated linear unit applied.
+        """
+
+        hidden_gelu = self.activation(self.linear1(hidden_states))
+        hidden_linear = self.gate(hidden_states)
+        hidden_states = hidden_gelu * hidden_linear
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.linear2(hidden_states)
+        hidden_states = self.dropout2(hidden_states)
+
+        return hidden_states
+
+
+class CustomDecoderLayer(nn.TransformerDecoderLayer):
+    """Decoder layer with option for gated feedforward."""
+
+    def __init__(self, 
+                 d_model: int, 
+                 decoder_attention_heads: int,
+                 decoder_ffn_dim: int,
+                 dropout: float,
+                 activation_function: str,
+                 gated_linear: bool = False) -> None:
+        
+        super().__init__(d_model=d_model, 
+                       nhead=decoder_attention_heads, 
+                       dim_feedforward=decoder_ffn_dim, 
+                       dropout=dropout,
+                       activation=activation_function,
+                       batch_first=True,
+                       norm_first=True)
+
+        self.gated_linear = gated_linear
+        if gated_linear:
+            self.gate = nn.Linear(d_model, decoder_ffn_dim, bias=True)
+            self._ff_block = self._ff_block_glu
+
+    def _ff_block_glu(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Gated Feedforward block. 
+        Args:
+            hidden_states
+        Returns:
+            hidden_state with gated linear unit applied.
+        """
+
+        hidden_gelu = self.activation(self.linear1(hidden_states))
+        hidden_linear = self.gate(hidden_states)
+        hidden_states = hidden_gelu * hidden_linear
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.linear2(hidden_states)
+        hidden_states = self.dropout2(hidden_states)
+
+        return hidden_states  
+
 
 class CustomEncoder(nn.TransformerEncoder):
     """Custom Transformer to ensure compatability with HuggingFace."""
@@ -75,7 +160,8 @@ class CustomEncoder(nn.TransformerEncoder):
     def __init__(self,
                  encoder_layer: nn.TransformerEncoderLayer,
                  n_layers: int,
-                 norm: Optional[nn.LayerNorm] = None,) -> None:
+                 norm: Optional[nn.LayerNorm] = None
+                 ) -> None:
         """
         Args:
             encoder_layer: The type of layer to use in the encoder
@@ -118,7 +204,7 @@ class CustomDecoder(nn.TransformerDecoder):
                  embedding_layer: MultimodalEmbedding,
                  norm: Optional[nn.LayerNorm] = None,
                  target_modality: Optional[str] = None,
-                 ):
+                 ) -> None:
         """
         Args:
             decoder_layer: The type of layer to use in the encoder
@@ -211,24 +297,22 @@ class CustomModel(PreTrainedModel, GenerationMixin):
         
         # Encoder
         enc_norm = nn.LayerNorm(config.d_model)
-        enc_layer = nn.TransformerEncoderLayer(config.d_model,
-                                               config.encoder_attention_heads,
-                                               config.encoder_ffn_dim,
-                                               config.dropout,
-                                               config.activation_function,
-                                               norm_first=True,
-                                               batch_first=True)
+        enc_layer = CustomEncoderLayer(config.d_model,
+                                       config.encoder_attention_heads,
+                                       config.encoder_ffn_dim,
+                                       config.dropout,
+                                       config.activation_function,
+                                       config.gated_linear)
         self.encoder = CustomEncoder(enc_layer, config.encoder_layers, norm=enc_norm)
 
         # Decoder
         dec_norm = nn.LayerNorm(config.d_model)
-        dec_layer = nn.TransformerDecoderLayer(config.d_model,
-                                               config.decoder_attention_heads,
-                                               config.decoder_ffn_dim,
-                                               config.dropout,
-                                               config.activation_function,
-                                               norm_first=True,
-                                               batch_first=True)
+        dec_layer = CustomDecoderLayer(config.d_model,
+                                       config.decoder_attention_heads,
+                                       config.decoder_ffn_dim,
+                                       config.dropout,
+                                       config.activation_function,
+                                       config.gated_linear)
         self.decoder = CustomDecoder(dec_layer,
                                      config.decoder_layers,
                                      norm=dec_norm,
