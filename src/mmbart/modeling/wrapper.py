@@ -18,8 +18,8 @@ from transformers.modeling_outputs import Seq2SeqModelOutput
 from mmbart.utils import calc_sampling_metrics
 
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
-from .custom_modeling import CustomModel
-from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
+from .custom_modeling import CustomConfig, CustomModel
+from .utils import DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 
@@ -72,7 +72,7 @@ def load_bart_model(
         bart_model.model.encoder.layernorm_embedding = dummy_layer
 
     # Replace learned pos embedding
-    pos_embeds = PositionalEncoding(model_config.d_model)
+    pos_embeds = SincCosPositionalEncoding(model_config.d_model)
     bart_model.model.encoder.embed_positions = pos_embeds
     bart_model.model.decoder.embed_positions = pos_embeds
 
@@ -128,7 +128,7 @@ def load_custom_bart_model(
         #custom_bart_model.model.decoder.layernorm_embedding = dummy_layer
 
     # Replace learned pos embedding
-    pos_embeds = PositionalEncoding(model_config.d_model)
+    pos_embeds = SincCosPositionalEncoding(model_config.d_model)
     custom_bart_model.model.encoder.embed_positions = pos_embeds
     custom_bart_model.model.decoder.embed_positions = pos_embeds
 
@@ -144,7 +144,7 @@ def load_custom_model(
     **kwargs,
 ) -> Tuple[CustomModel, MultimodalEmbedding]:
     
-    model_config = CustomBartConfig.from_pretrained(
+    model_config = CustomConfig.from_pretrained(
         model_name,
         vocab_size=target_tokenizer.vocab_size,
         pad_token_id=target_tokenizer.pad_token_id,
@@ -156,7 +156,7 @@ def load_custom_model(
     )
 
     multimodal_embedding_layer = MultimodalEmbedding(
-        data_config, model_config.d_model, multimodal_norm, do_positional_encodings=True
+        data_config, model_config.d_model, multimodal_norm, do_positional_encodings=True, positional_encodings_type=model_config.positional_encoding_type
     )
 
     custom_model = CustomModel(target_modality, target_tokenizer, model_config, multimodal_embedding_layer)

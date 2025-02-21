@@ -10,6 +10,7 @@ encoder_ffn_dim: 2048
 decoder_ffn_dim: 2048
 multimodal_norm: True
 final_layer_norm: True
+positional_encoding_type: sin_cos
 
 optimiser: adam
 lr: 1e-4

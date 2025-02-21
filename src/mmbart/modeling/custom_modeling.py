@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 import torch
 from torch import nn
@@ -12,6 +12,61 @@ from transformers.modeling_utils import PreTrainedModel
 
 from .custom_bart_modeling import CustomBartConfig
 from .utils import MultimodalEmbedding
+from transformers.configuration_utils import PretrainedConfig
+
+
+class CustomConfig(PretrainedConfig):
+    """Config for the Custom Model."""
+
+    def __init__(
+        self,
+        d_model: int = 512,
+        encoder_layers: int = 6,
+        encoder_attention_heads: int = 8,
+        encoder_ffn_dim: int = 2048,
+        decoder_layers: int = 6,
+        decoder_attention_heads: int = 8,
+        decoder_ffn_dim: int = 2048,
+        dropout: float = 0.1,
+        activation_function: str | Callable = 'gelu',
+        positional_encoding_type: str = 'sin_cos',
+        bos_token_id: int = 2,
+        eos_token_id: int = 3,
+        pad_token_id: int = 0,
+        decoder_start_token_id: int = 2,
+        forced_eos_token_id: int = 3,
+        **kwargs
+    ) -> None:
+
+        self.d_model = d_model
+
+        self.encoder_layers = encoder_layers
+        self.encoder_attention_heads = encoder_attention_heads
+        self.encoder_ffn_dim = encoder_ffn_dim
+
+        self.decoder_layers = decoder_layers
+        self.decoder_attention_heads = decoder_attention_heads
+        self.decoder_ffn_dim = decoder_ffn_dim
+
+        self.dropout = dropout
+        self.activation_function = activation_function
+        self.positional_encoding_type = positional_encoding_type
+
+        self.bos_token_id = bos_token_id
+        self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id
+        self.decoder_start_token_id = decoder_start_token_id
+        self.forced_eos_token_id = forced_eos_token_id
+        
+        super().__init__(
+            pad_token_id=pad_token_id,
+            eos_token_id=eos_token_id,
+            bos_token_id=bos_token_id,
+            decoder_start_token_id=decoder_start_token_id,
+            forced_eos_token_id=forced_eos_token_id,
+            **kwargs,
+        )
+
 
 
 class CustomEncoder(nn.TransformerEncoder):
@@ -135,7 +190,7 @@ class CustomModel(PreTrainedModel, GenerationMixin):
     def __init__(self,
                  target_modality,
                  target_tokenizer,
-                 config: CustomBartConfig,
+                 config: CustomConfig,
                  multimodal_embedding_layer: MultimodalEmbedding
                  ):
         """
