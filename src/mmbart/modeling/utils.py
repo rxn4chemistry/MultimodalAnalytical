@@ -8,7 +8,7 @@ class MultimodalEmbedding(nn.Module):
     """Multimodal Embedding Layer"""
 
     def __init__(
-        self, data_config: Dict[str, Any], d_model: int, embedding_norm: bool
+        self, data_config: Dict[str, Any], d_model: int, embedding_norm: bool, do_positional_encodings: bool = False
     ) -> None:
         """Init.
         Args:
@@ -21,6 +21,7 @@ class MultimodalEmbedding(nn.Module):
         self.data_config = data_config
         self.d_model = d_model
         self.embedding_norm = embedding_norm
+        self.do_positional_encodings = do_positional_encodings
 
         self.embedding_layer_dict = nn.ModuleDict()
         self.embedding_norm_dict = nn.ModuleDict()
@@ -33,7 +34,8 @@ class MultimodalEmbedding(nn.Module):
             if self.embedding_norm:
                 self.embedding_norm_dict[modality] = nn.LayerNorm(self.d_model)
 
-        self.positional_encodings = PositionalEncoding(d_model)
+        if self.do_positional_encodings:
+            self.positional_encodings = PositionalEncoding(d_model)
 
     def _create_embedding(
         self, modality_config: Dict[str, Any]
@@ -102,14 +104,14 @@ class MultimodalEmbedding(nn.Module):
 
         return embedding_layer
 
-    def forward(self, token_ids: Dict[str, Any], pos_encoding: bool = False) -> torch.Tensor:
+    def forward(self, token_ids: Dict[str, Any]) -> torch.Tensor:
         """Perform Embedding. Handles embedding, layer norm and optionally XVal.
         Args:
             token_ids: Input modalities
         Return:
             embedding: torch.Tensor
         """
-
+        
         embedding = list()
 
         for modality, modality_input in token_ids.items():
@@ -136,7 +138,7 @@ class MultimodalEmbedding(nn.Module):
 
         embedding_tensor = torch.cat(embedding, dim=1)
 
-        if pos_encoding:
+        if self.do_positional_encodings:
             embedding_tensor = embedding_tensor + self.positional_encodings(embedding_tensor)
 
         return embedding_tensor

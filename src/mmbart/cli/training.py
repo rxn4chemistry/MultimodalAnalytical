@@ -84,8 +84,6 @@ def main(config: DictConfig):
 
     # Load Model
     train_steps = calculate_training_steps(data_module, config)
-    checkpoint_path = config["model"]["model_checkpoint_path"]
-
     model = HFWrapper(
         data_config=data_config,
         target_tokenizer=preprocessors[target_modality],
@@ -97,7 +95,11 @@ def main(config: DictConfig):
     trainer = build_trainer(model_type, **config["trainer"])
 
     # Train
+    checkpoint_path = config["model"]["model_checkpoint_path"]
     if config["finetuning"]:
+        checkpoint = torch.load(config["model"]["model_checkpoint_path"])
+        model.load_state_dict(checkpoint["state_dict"])
+        logger.info(f"Loaded checkpoint from {checkpoint_path}.")
         trainer.fit(model, datamodule=data_module)
     else:
         trainer.fit(model, datamodule=data_module, ckpt_path=checkpoint_path)

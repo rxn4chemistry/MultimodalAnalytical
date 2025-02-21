@@ -17,7 +17,8 @@ from transformers.modeling_outputs import Seq2SeqModelOutput
 
 from mmbart.utils import calc_sampling_metrics
 
-from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration, CustomModel
+from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
+from .custom_modeling import CustomModel
 from .utils import DummyLayer, MultimodalEmbedding, PositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
@@ -124,6 +125,7 @@ def load_custom_bart_model(
         dummy_layer = DummyLayer()
         custom_bart_model.model.encoder.layernorm_embedding = dummy_layer
         custom_bart_model.model.decoder.layernorm_embedding = dummy_layer
+        #custom_bart_model.model.decoder.layernorm_embedding = dummy_layer
 
     # Replace learned pos embedding
     pos_embeds = PositionalEncoding(model_config.d_model)
@@ -154,7 +156,7 @@ def load_custom_model(
     )
 
     multimodal_embedding_layer = MultimodalEmbedding(
-        data_config, model_config.d_model, multimodal_norm
+        data_config, model_config.d_model, multimodal_norm, do_positional_encodings=True
     )
 
     custom_model = CustomModel(target_modality, target_tokenizer, model_config, multimodal_embedding_layer)
