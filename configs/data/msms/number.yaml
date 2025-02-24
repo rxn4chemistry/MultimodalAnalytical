@@ -1,8 +1,10 @@
 MSMS:
   type: msms_number
   column: msms_iceberg__[M+H]+
-  encoding_type: linear
   target: False
+  preprocessor_arguments:
+    encoding_type: linear
+  
 Smiles:
   type: text
   column: smiles

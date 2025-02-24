@@ -47,7 +47,7 @@ class PatchPreprocessor:
 
     def interpolation_merck(self, spectra: List[float]) -> List[float]:
         old_x = np.arange(400, 3982, 2)
-        new_x = np.arange(650, 3902, 2)
+        new_x = np.arange(650, 3900, 2)
         interp = interpolate.interp1d(old_x, spectra)
         return interp(new_x)
 

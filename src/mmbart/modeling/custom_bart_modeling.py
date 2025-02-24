@@ -110,6 +110,7 @@ class CustomBartConfig(BartConfig):
         
         self.final_layer_norm = final_layer_norm
         self.batch_size = batch_size
+        self.positional_encoding_type = 'sin_cos'
 
 
 class PreLayerNormBartEncoderLayer(BartEncoderLayer):
