@@ -35,7 +35,6 @@ logger.addHandler(logging.NullHandler())
 def main(config: DictConfig):
 
     seed_everything()
-    logger.info(config)
 
     if config.model.model_checkpoint_path is None:
         raise ValueError(

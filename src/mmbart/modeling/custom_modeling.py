@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from torch import nn
+from transformers.configuration_utils import PretrainedConfig
 from transformers.generation import GenerationMixin
 from transformers.modeling_outputs import (
     BaseModelOutput,
@@ -10,9 +11,7 @@ from transformers.modeling_outputs import (
 )
 from transformers.modeling_utils import PreTrainedModel
 
-from .custom_bart_modeling import CustomBartConfig
 from .utils import MultimodalEmbedding
-from transformers.configuration_utils import PretrainedConfig
 
 
 class CustomConfig(PretrainedConfig):
@@ -76,17 +75,17 @@ class CustomConfig(PretrainedConfig):
 class CustomEncoderLayer(nn.TransformerEncoderLayer):
     """Encoder layer with option for gated feedforward."""
 
-    def __init__(self, 
-                 d_model: int, 
+    def __init__(self,
+                 d_model: int,
                  encoder_attention_heads: int,
                  encoder_ffn_dim: int,
                  dropout: float,
-                 activation_function: str,
+                 activation_function: str | Callable,
                  gated_linear: bool = False):
         
-        super().__init__(d_model=d_model, 
-                       nhead=encoder_attention_heads, 
-                       dim_feedforward=encoder_ffn_dim, 
+        super().__init__(d_model=d_model,
+                       nhead=encoder_attention_heads,
+                       dim_feedforward=encoder_ffn_dim,
                        dropout=dropout,
                        activation=activation_function,
                        batch_first=True,
@@ -95,10 +94,10 @@ class CustomEncoderLayer(nn.TransformerEncoderLayer):
         self.gated_linear = gated_linear
         if gated_linear:
             self.gate = nn.Linear(d_model, encoder_ffn_dim, bias=True)
-            self._ff_block = self._ff_block_gated
+            self._ff_block = self._ff_block_gated # type: ignore
 
     def _ff_block_gated(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        """Gated Feedforward block. 
+        """Gated Feedforward block.
         Args:
             hidden_states
         Returns:
@@ -118,17 +117,17 @@ class CustomEncoderLayer(nn.TransformerEncoderLayer):
 class CustomDecoderLayer(nn.TransformerDecoderLayer):
     """Decoder layer with option for gated feedforward."""
 
-    def __init__(self, 
-                 d_model: int, 
+    def __init__(self,
+                 d_model: int,
                  decoder_attention_heads: int,
                  decoder_ffn_dim: int,
                  dropout: float,
-                 activation_function: str,
+                 activation_function: str | Callable,
                  gated_linear: bool = False) -> None:
         
-        super().__init__(d_model=d_model, 
-                       nhead=decoder_attention_heads, 
-                       dim_feedforward=decoder_ffn_dim, 
+        super().__init__(d_model=d_model,
+                       nhead=decoder_attention_heads,
+                       dim_feedforward=decoder_ffn_dim,
                        dropout=dropout,
                        activation=activation_function,
                        batch_first=True,
@@ -137,10 +136,10 @@ class CustomDecoderLayer(nn.TransformerDecoderLayer):
         self.gated_linear = gated_linear
         if gated_linear:
             self.gate = nn.Linear(d_model, decoder_ffn_dim, bias=True)
-            self._ff_block = self._ff_block_glu
+            self._ff_block = self._ff_block_glu # type: ignore
 
     def _ff_block_glu(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        """Gated Feedforward block. 
+        """Gated Feedforward block.
         Args:
             hidden_states
         Returns:
@@ -154,7 +153,7 @@ class CustomDecoderLayer(nn.TransformerDecoderLayer):
         hidden_states = self.linear2(hidden_states)
         hidden_states = self.dropout2(hidden_states)
 
-        return hidden_states  
+        return hidden_states
 
 
 class CustomEncoder(nn.TransformerEncoder):

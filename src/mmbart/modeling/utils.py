@@ -3,6 +3,7 @@ from typing import Any, Dict, Union
 import torch
 from torch import nn
 
+
 class MultimodalEmbedding(nn.Module):
     """Multimodal Embedding Layer"""
 
@@ -112,7 +113,6 @@ class MultimodalEmbedding(nn.Module):
         """
         
         embedding = list()
-        last_pos_enc_indices: torch.Tensor = None
 
         for modality, modality_input in token_ids.items():
             # Embed

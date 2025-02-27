@@ -2,10 +2,11 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from datasets import Dataset, concatenate_datasets, load_from_disk
+from omegaconf.dictconfig import DictConfig
+from omegaconf.listconfig import ListConfig
+from rdkit import Chem
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
-from rdkit import Chem
-from omegaconf.listconfig import ListConfig
 
 
 def interpolate(spec: np.ndarray, x: np.ndarray, upscale_val: int) -> np.ndarray:
@@ -49,7 +50,10 @@ def smiles_augment(smiles: str, n_augments: int) -> List[str]:
 AUGMENT_OPTIONS = {"horizontal": horizontal_shift_augment, "smooth": smooth_augment, "smiles_aug": smiles_augment}
 
 # Todo: Move Augmentations into datamodule and do augmentations on the fly
-def augment(dataset: Dataset, augment_config: Optional[Dict[str, Any]]) -> Dataset:
+def augment(dataset: Dataset, augment_config: Optional[DictConfig]) -> Dataset:
+
+    if not isinstance(augment_config, DictConfig):
+        return dataset
 
     # Only perform augmentation if augment config has necessary keys
     augmented_datasets = list()

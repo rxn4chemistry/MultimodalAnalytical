@@ -87,7 +87,7 @@ class GuidedFormulaProcessor(LogitsProcessor):
             torch.FloatTensor: Processed Scores
         """
 
-        RDLogger.DisableLog("rdApp.*")
+        RDLogger.DisableLog("rdApp.*") # type: ignore
 
         # Decode Smiles
         decoded_smiles = self.target_tokenizer.batch_decode(

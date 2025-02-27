@@ -8,6 +8,7 @@ from datasets import (
     concatenate_datasets,
     load_dataset,
 )
+from omegaconf.dictconfig import DictConfig
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 
 from mmbart.data.augmentations import augment
@@ -178,7 +179,7 @@ def build_dataset_multimodal(
     data_path: str,
     splitting: str,
     cv_split: int,
-    augment_config: Optional[Dict[str, Any]] = None
+    augment_config: Optional[DictConfig] = None
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
     
     if not Path(data_path).is_dir():

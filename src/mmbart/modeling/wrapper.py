@@ -2,6 +2,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pytorch_lightning as pl
 import torch
+from rdkit import Chem
+from rdkit.Chem import rdMolDescriptors
 from torch import nn
 from torch.optim.lr_scheduler import OneCycleLR
 from transformers import (
@@ -17,12 +19,10 @@ from transformers.modeling_outputs import Seq2SeqModelOutput
 
 from mmbart.utils import calc_sampling_metrics
 
+from ..generation.logit_processors import GuidedFormulaProcessor
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
 from .custom_modeling import CustomConfig, CustomModel
 from .utils import DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
-from ..generation.logit_processors import GuidedFormulaProcessor
-from rdkit import Chem
-from rdkit.Chem import rdMolDescriptors
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 
@@ -492,7 +492,7 @@ class HFWrapper(pl.LightningModule):
             target_formula = [rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles)) for smiles in batch["target_smiles"]]
             n_beams = 10
             logit_processor = [GuidedFormulaProcessor(n_beams, target_formula, self.target_tokenizer)]
-            generated_sequences = self.generate(batch, n_beams=10, logits_processor=logit_processor)
+            generated_sequences = self.generate(batch, n_beams=15, logits_processor=logit_processor)
         else:
             generated_sequences = self.generate(batch, n_beams=10)
         
