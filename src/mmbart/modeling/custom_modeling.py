@@ -36,6 +36,7 @@ class CustomConfig(PretrainedConfig):
         pad_token_id: int = 0,
         decoder_start_token_id: int = 2,
         forced_eos_token_id: int = 3,
+        guided_generation: bool = False,
         **kwargs
     ) -> None:
 
@@ -59,6 +60,8 @@ class CustomConfig(PretrainedConfig):
         self.pad_token_id = pad_token_id
         self.decoder_start_token_id = decoder_start_token_id
         self.forced_eos_token_id = forced_eos_token_id
+
+        self.guided_generation = guided_generation
         
         super().__init__(
             pad_token_id=pad_token_id,

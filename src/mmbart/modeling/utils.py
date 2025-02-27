@@ -124,30 +124,6 @@ class MultimodalEmbedding(nn.Module):
             else:
                 modality_embedding = self.embedding_layer_dict[modality](modality_input)  # type: ignore[attr-defined]
 
-            # Apply positional encodings
-            if self.do_positional_encodings:
-                batch_size, seq_len = modality_embedding.shape[:2]
-
-                # Get largest pos_enc indice
-                if isinstance(last_pos_enc_indices, torch.Tensor):
-                    max_pos_enc_indices = torch.max(last_pos_enc_indices, -1)[0].unsqueeze(1)
-                else:
-                    max_pos_enc_indices = torch.full((batch_size,1), 0, device=modality_embedding.device)
-                    
-                # Generate tensor of increasing indices and offset by the highest pos_enc indice for each row
-                modality_pos_encoding = torch.arange(seq_len, device=modality_embedding.device).repeat(batch_size, 1)
-                modality_pos_encoding = modality_pos_encoding + max_pos_enc_indices
-
-                # Mask padding tokens for pos encoding
-                if isinstance(self.embedding_layer_dict[modality], nn.Embedding):
-                    modality_tensor = modality_input["tokenized_input"] if isinstance(modality_input, dict) else modality_input
-                    padding_mask = (modality_tensor == self.embedding_layer_dict[modality].padding_idx)
-                    modality_pos_encoding[padding_mask] = -1
-
-                modality_embedding = modality_embedding + self.positional_encodings(modality_pos_encoding.clone())
-
-                last_pos_enc_indices = modality_pos_encoding
-
             # Normalise
             if self.embedding_norm:  # type: ignore[attr-defined]
                 modality_embedding = self.embedding_norm_dict[modality](  # type: ignore[attr-defined]
@@ -161,6 +137,10 @@ class MultimodalEmbedding(nn.Module):
             raise ValueError("At least one modality needs to be in token_ids.")
 
         embedding_tensor = torch.cat(embedding, dim=1)
+
+        # Apply positional encodings
+        if self.do_positional_encodings:
+            embedding_tensor = embedding_tensor + self.positional_encodings(embedding_tensor)
 
         return embedding_tensor
 
@@ -193,7 +173,7 @@ class SincCosPositionalEncoding(nn.Module):
         self.max_seq_len = max_seq_len
         self.register_buffer("pos_enc", self._positional_encs())
 
-    def forward(self, indices: torch.Tensor, *args) -> torch.Tensor: # noqa: ARG002
+    def forward(self, inputs: torch.Tensor, *args) -> torch.Tensor: # noqa: ARG002
         """Given an input returns a sinusoidal positional encoding.
         Args:
             indices: Batch_size x Seq_len Contains indices of the positional encodings to sample
@@ -201,7 +181,11 @@ class SincCosPositionalEncoding(nn.Module):
             torch.Tensor: sinusoidal positional embedding
         """
 
-        return self.pos_enc[indices]
+
+        batch_size, seq_len = inputs.shape[0], inputs.shape[1]
+        pos_encodings = self.pos_enc[:seq_len, :].unsqueeze(0)  # type: ignore
+        return pos_encodings.repeat(batch_size, 1, 1)
+        #return self.pos_enc[indices]
 
     def _positional_encs(self) -> torch.Tensor:
         """Produces a tensor of positional embeddings for the model
@@ -233,8 +217,9 @@ class LearnedPositionalEncoding(nn.Module):
 
         self.max_seq_len = max_seq_len
         self.pos_encodings = nn.Embedding(self.max_seq_len, d_model)
+        self.norm = nn.LayerNorm(d_model)
     
-    def forward(self, indices: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Given an input returns a learned positional encoding.
         Args:
             indices: Batch_size x Seq_len Contains indices of the positional encodings to sample
@@ -243,8 +228,13 @@ class LearnedPositionalEncoding(nn.Module):
         """
 
         # Set pos enc of masked tokens to self.max_seq_len - 1
-        indices[indices == -1] = self.max_seq_len - 1
-        return self.pos_encodings(indices)
+        #indices[indices == -1] = self.max_seq_len - 1
+        batch_size, seq_len = inputs.shape[0], inputs.shape[1]
+        indices = torch.arange(seq_len, device=inputs.device)
+        indice_tensor = indices.repeat(batch_size, 1)
+        pos_enc = self.pos_encodings(indice_tensor)
+        pos_enc = self.norm(pos_enc)
+        return pos_enc
 
 
 POS_ENC_REGISTRY = {'sin_cos': SincCosPositionalEncoding,

@@ -106,6 +106,7 @@ def main(config: DictConfig):
 
     # Load best model
     best_model_path = trainer.checkpoint_callback.best_model_path  # type: ignore
+    logger.info(f"Loading best Model from: {best_model_path}")
     best_checkpoint = torch.load(best_model_path)
     model.load_state_dict(best_checkpoint["state_dict"])
 

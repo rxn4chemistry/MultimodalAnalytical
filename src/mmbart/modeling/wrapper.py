@@ -20,6 +20,9 @@ from mmbart.utils import calc_sampling_metrics
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
 from .custom_modeling import CustomConfig, CustomModel
 from .utils import DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
+from ..generation.logit_processors import GuidedFormulaProcessor
+from rdkit import Chem
+from rdkit.Chem import rdMolDescriptors
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 
@@ -261,6 +264,7 @@ class HFWrapper(pl.LightningModule):
         self.model_name = model_name
         self.data_config = data_config
         self.multimodal_norm = multimodal_norm
+        self.guided_generation = kwargs['guided_generation'] if 'guided_generation' in kwargs else False
 
         # Extract Target modality
         self.target_modality = ""
@@ -483,8 +487,15 @@ class HFWrapper(pl.LightningModule):
 
         model_output = self.forward(batch)
         loss = model_output.loss
-
-        generated_sequences = self.generate(batch, n_beams=10)
+        
+        if self.guided_generation:
+            target_formula = [rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles)) for smiles in batch["target_smiles"]]
+            n_beams = 10
+            logit_processor = [GuidedFormulaProcessor(n_beams, target_formula, self.target_tokenizer)]
+            generated_sequences = self.generate(batch, n_beams=10, logits_processor=logit_processor)
+        else:
+            generated_sequences = self.generate(batch, n_beams=10)
+        
         decoded_sequences = self.target_tokenizer.batch_decode(generated_sequences, skip_special_tokens=True)
         
         return {"loss": loss, "predictions": decoded_sequences, "targets": batch['target_smiles']}
