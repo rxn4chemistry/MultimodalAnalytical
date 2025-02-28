@@ -1,5 +1,5 @@
 [project]
-name = "mmbart"
+name = "analytical_fm"
 version = "0.0.1"
 description = "BART model for multimodal spectra processing"
 authors = [
@@ -31,10 +31,10 @@ dependencies = [
 include-package-data = true
 
 [tool.setuptools.packages]
-find = { where = ["src"], include = ["mmbart"] }
+find = { where = ["src"], include = ["analytical_fm"] }
 
 [tool.setuptools.package-data]
-"mmbart" = [
+"analytical_fm" = [
     "py.typed",
     "modeling/resources/train_pipeline_configuration_example.yaml"
 ]
@@ -98,7 +98,7 @@ module = [
     "torch.*",
     "transformers.*",
     "yaml.*",
-    "mmbart.*",
+    "analytical_fm.*",
     "tokenizers.*",
     "pandas.*",
     "scipy.*",

@@ -26,20 +26,3 @@ jbsub -queue x86_24h -cores 7+1 -mem 60g \
         trainer.epochs=60 \
         model.lr=${lr} \
         job_name=${exp_dir}\
-
-
-
-# For IR
-#data=ir/patches  \
-#data_path=/dccstor/ltlws3emb/analytical_data/data/simulated/IR \
-#data.IR.preprocessor_arguments.patch_size=${patch_size} \
-
-#For NMR
-#data_path=/dccstor/ltlws3emb/analytical_data/data/simulated/1H_NMR \
-#data=h_nmr/${modality} \
-#data.Spectra.preprocessor_arguments.patch_size=${patch_size} \
-
-#For CNMR
-#data_path=/dccstor/ltlws3emb/analytical_data/data/simulated/13C_NMR \
-#data=multimodal_analytical/${modality} \
-#model.batch_size=64 \

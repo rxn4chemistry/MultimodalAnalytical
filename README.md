@@ -57,10 +57,10 @@ Install the `modeling` extras:
 uv pip install -e ".[modeling]"
 ```
 
-Run a training using a training pipeline configuration (see [sample](./src/mmbart/modeling/resources/train_pipeline_configuration_example.yaml))
+Run a training using a training pipeline configuration (see [sample](./src/analytical_fm/modeling/resources/train_pipeline_configuration_example.yaml))
 
 ```console
-torchrun --nproc_per_node {NUMBER_OF_GPUS} src/mmbart/modeling/cli/training.py --pipeline_configuration_path ./src/mmbart/modeling/resources/train_pipeline_configuration_example.yaml
+torchrun --nproc_per_node {NUMBER_OF_GPUS} src/analytical_fm/modeling/cli/training.py --pipeline_configuration_path ./src/analytical_fm/modeling/resources/train_pipeline_configuration_example.yaml
 ```
 
 ## Using the data_analysis module

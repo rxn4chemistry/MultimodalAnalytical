@@ -13,7 +13,7 @@ import importlib_resources
 import numpy as np
 import pandas as pd
 
-from mmbart.utils import calc_sampling_metrics, clean_sample
+from analytical_fm.utils import calc_sampling_metrics, clean_sample
 
 
 def test_clean_sample() -> None:
@@ -39,7 +39,7 @@ def test_clean_sample() -> None:
 def test_scoring() -> None:
     """Function to scoring."""
 
-    with importlib_resources.files("mmbart") as source_folder:
+    with importlib_resources.files("analytical_fm") as source_folder:
         test_data_path = Path(source_folder / "resources/test_data/scoring/test_data.pkl")
         test_data = pd.read_pickle(test_data_path)
 

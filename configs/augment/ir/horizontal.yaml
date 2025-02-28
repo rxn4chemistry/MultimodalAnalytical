@@ -1,17 +1,10 @@
 # Additional augmented data to add to training set
-augment_data_path: <to be filled>
+augment_data_path: null
 
 # Augmentations to perform on augment_column
 augmentations:
   -
     augment_column: ir_spectra
     augment_fns:
-      smooth:
-        sigmas: [0.75, 1.25]
       horizontal:
-        n_augments: 2
-  -
-    augment_column: smiles
-    augment_fns:
-      smiles_aug:
         n_augments: 2

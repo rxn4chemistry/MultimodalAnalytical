@@ -1441,7 +1441,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mmbart"
+name = "analytical_fm"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
