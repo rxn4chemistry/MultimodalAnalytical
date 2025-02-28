@@ -492,7 +492,7 @@ class HFWrapper(pl.LightningModule):
             target_formula = [rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles)) for smiles in batch["target_smiles"]]
             n_beams = 10
             logit_processor = [GuidedFormulaProcessor(n_beams, target_formula, self.target_tokenizer)]
-            generated_sequences = self.generate(batch, n_beams=15, logits_processor=logit_processor)
+            generated_sequences = self.generate(batch, n_beams=10, logits_processor=logit_processor)
         else:
             generated_sequences = self.generate(batch, n_beams=10)
         
