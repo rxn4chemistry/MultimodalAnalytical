@@ -1,7 +1,7 @@
 [project]
 name = "analytical_fm"
 version = "0.0.1"
-description = "BART model for multimodal spectra processing"
+description = "Analytical Foundation Models for multimodal spectra processing"
 authors = [
     {name = "AI4SD team", email = "ai4sd@zurich.ibm.com"}
 ]

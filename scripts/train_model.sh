@@ -4,7 +4,7 @@ export HF_DATASETS_CACHE=$1
 export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.1/lib64
 export TOKENIZERS_PARALLELISM=False
 
-model=custom_hf_bart
+model=custom_model
 patch_size=250
 lr=5e-4
 

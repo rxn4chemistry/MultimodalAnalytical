@@ -5,8 +5,8 @@ export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/
 export TOKENIZERS_PARALLELISM=False
 export HYDRA_FULL_ERROR=1
 
-modality=carbon
-model=custom_hf_bart
+modality=patches
+model=custom_bart
 patch_size=125
 
 top_dir=$2

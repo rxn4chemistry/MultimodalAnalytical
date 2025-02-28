@@ -13,8 +13,8 @@ python ./src/cli/training.py \
     working_dir=${top_dir} \
     job_name=${exp_dir} \
     data_path=${data_path} \
-    data=msms/msms_config \
-    model=hf_bart_medium \
+    data=ir/patches \
+    model=custom_model \
     molecules=True \
     trainer.epochs=60 \
     model.lr=5e-4 \
