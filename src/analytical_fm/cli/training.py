@@ -128,7 +128,7 @@ def main(config: DictConfig):
     save_path = (
         Path(config["working_dir"])
         / config["job_name"]
-        / f"test_data_logits_beam_{n_beams}.pkl"
+        / f"test_data_beam_{n_beams}.pkl"
     )
     with (save_path).open("wb") as save_file:
         pickle.dump(

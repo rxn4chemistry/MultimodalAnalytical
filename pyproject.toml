@@ -1,7 +1,7 @@
 [project]
 name = "analytical_fm"
 version = "0.0.1"
-description = "Analytical Foundation Models for multimodal spectra processing"
+description = "Analytical Models for multimodal spectra processing"
 authors = [
     {name = "AI4SD team", email = "ai4sd@zurich.ibm.com"}
 ]
@@ -36,7 +36,8 @@ find = { where = ["src"], include = ["analytical_fm"] }
 [tool.setuptools.package-data]
 "analytical_fm" = [
     "py.typed",
-    "modeling/resources/train_pipeline_configuration_example.yaml"
+    "modeling/resources/train_pipeline_configuration_example.yaml",
+    "../configs/**",
 ]
 
 [tool.uv]
@@ -86,6 +87,10 @@ dev = [
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.scripts]
+train_model = "analytical_fm.cli.training:main"
+predict = "analytical_fm.cli.predict:main"
 
 
 [tool.mypy]

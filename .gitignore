@@ -118,3 +118,8 @@ venv.bak/
 # Apple macOS
 .DS_Store
 bench/
+
+# Replication files
+paper_replication/phosphor/data
+paper_replication/phosphor/runs
+paper_replication/phosphor/cache
