@@ -193,7 +193,7 @@ def build_dataset_multimodal(
     if splitting == "test_only":
         datasets = list(dataset_dict.values())
         combined_dataset = concatenate_datasets(datasets)
-        dataset_dict = DatasetDict({"test": combined_dataset})
+        dataset_dict = DatasetDict({"test": combined_dataset, "train": combined_dataset, "val": combined_dataset})
 
     # Split based on functinal group occurence. Only relevant for Merck
     elif splitting == "func_group_split":

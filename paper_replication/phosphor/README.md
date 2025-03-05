@@ -29,14 +29,33 @@ This script downloads the experimental as well as the synthetic data and process
 
 ## Replicating Table 2
 
-Table 2 in the main paper contains ablations on training our models from scratch on the data by Hack et al. We provide a script that allows the replication of our results. The scripts performs 5-fold cross validation across 6 experiments. Each training takes around 20 minutes on a V100 GPU. The result for each training are saved in the folder for the individual run in the file `test_data_beam_10.pkl`.
+Table 2 in the main paper contains ablations on training our models from scratch on the data by Hack et al. We provide a script that allows the replication of our results. The scripts performs 5-fold cross validation across 6 experiments. Each training takes around 12 minutes on a V100 GPU. The result for each training are saved in the folder for the individual run in the file `test_data_beam_10.pkl`.
 
 ```
-./scripts/phosphor_from_scratch.sh -r runs/ -d data/hack_clean/
+./scripts/phosphor_from_scratch.sh -r runs/from_scratch -d data/hack_clean/
 
 -r: The folder in which the runs are saved
 -d: The path to the training data
 ```
 
+## Replicating Table 3
 
+Table 3 contains results on models that have been pretrained first on the synthetic and subsequently finetuned on the experimental data. The following two scripts allow reproduction of the results by first pretraining the models and then finetuning them. Pretraining a models takes around 2.5h on a V100 GPU. In total the scripts pretrains 6 models and finetunes each with 5-fold cross validation on the experimental data.
 
+### Pretraining
+
+```
+./scripts/phosphor_pretraining.sh -r runs/pretraining -d data/pretraining/
+
+-r: The folder in which the runs are saved
+-d: The path to the training data
+```
+
+### Finetuning
+
+```
+./scripts/phosphor_finetuning.sh -r runs/pretraining -d data/hack_clean/
+
+-r: The folder in which the runs are saved
+-d: The path to the training data
+```

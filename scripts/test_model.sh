@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export HF_DATASETS_CACHE=$1
-export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.2/lib64
 export TOKENIZERS_PARALLELISM=False
 export HYDRA_FULL_ERROR=1
 
@@ -9,11 +7,11 @@ modality=patches
 model=custom_bart
 patch_size=125
 
-top_dir=$2
-exp_dir=$3
-data_path=$4
-checkpoint_path=$5
-preprocessor_path=$6
+top_dir=$1
+exp_dir=$2
+data_path=$3
+checkpoint_path=$4
+preprocessor_path=$5
 
 
 

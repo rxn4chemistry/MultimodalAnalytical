@@ -1,16 +1,14 @@
 #!/bin/bash
 
-export HF_DATASETS_CACHE=$1
-export LD_LIBRARY_PATH=/opt/share/gcc-10.1.0//lib64:/opt/share/gcc-10.1.0//lib:/usr/local/cuda-12.1/lib64
 export TOKENIZERS_PARALLELISM=False
 
 model=custom_model
 patch_size=250
-lr=5e-4
+lr=1.e-3
 
-top_dir=$2
-exp_dir=$3
-data_path=$4
+top_dir=$1
+exp_dir=$2
+data_path=$3
 
 
 mkdir -p ${top_dir}/${exp_dir}
