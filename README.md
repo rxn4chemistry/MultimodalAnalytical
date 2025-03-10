@@ -1,6 +1,6 @@
 # Analytical Foundation Models
 
-This repository contains the official implementation of the research presented in ["From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation"]() as well as the addendum to ["Leveraging infrared spectroscopy for automated structure elucidation"](https://www.nature.com/articles/s42004-024-01341-w). It provides the complete codebase needed to reproduce our results and train models on <sup>31</sup>P-NMR spectra and IR spectra. The framework is build on PyTorch, PyTorch Lightning and Hugginface. To install it follow the instructions below.
+This repository contains the official implementation of the research presented in ["From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation"](https://chemrxiv.org/engage/chemrxiv/article-details/67c813e86dde43c90891f1f6) as well as the addendum to ["Leveraging infrared spectroscopy for automated structure elucidation"](https://www.nature.com/articles/s42004-024-01341-w). It provides the complete codebase needed to reproduce our results and train models on <sup>31</sup>P-NMR spectra and IR spectra. The framework is build on PyTorch, PyTorch Lightning and Hugginface. To install it follow the instructions below.
 
 ## Installation
 To install the code base ensure that you have at least Python 3.10 installed. Then follow the steps below:
@@ -18,4 +18,7 @@ Ex.
 `data.IR.column=ir_spectra \`
 
 ## Replication
-Complete instructions for reproducing the results presented in our papers are provided in the [papers](paper_replication/) folder. These documents contains step-by-step guidance, including data preparation, model training parameters, and evaluation procedures to replicate our experiments.
+Complete instructions for reproducing the results presented in our papers are provided in the [papers](paper_replication/) folder. These documents contains step-by-step guidance, including data preparation, model training parameters, and evaluation procedures to replicate our experiments. 
+
+- Phosphor: [here](paper_replication/phosphor)
+- IR Addendum: [here](paper_replication/ir_addendum)
