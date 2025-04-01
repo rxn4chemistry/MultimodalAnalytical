@@ -119,7 +119,12 @@ venv.bak/
 .DS_Store
 bench/
 
-# Replication files
+# Replication: Phosphor
 paper_replication/phosphor/data
 paper_replication/phosphor/runs
 paper_replication/phosphor/cache
+
+# Replication: IR
+paper_replication/ir/data
+paper_replication/ir/runs
+paper_replication/ir/cache

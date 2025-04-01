@@ -195,7 +195,7 @@ def build_dataset_multimodal(
         combined_dataset = concatenate_datasets(datasets)
         dataset_dict = DatasetDict({"test": combined_dataset, "train": combined_dataset, "val": combined_dataset})
 
-    # Split based on functinal group occurence. Only relevant for Merck
+    # Split based on functinal group occurence.
     elif splitting == "func_group_split":
         dataset_dict = func_split(data_path, cv_split=cv_split, seed=DEFAULT_SEED)
     

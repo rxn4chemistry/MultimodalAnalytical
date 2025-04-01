@@ -22,4 +22,4 @@ python scripts/process_hack_data.py --data_path ${output_folder}/hack_data.csv -
 # Download Synthetic data
 echo "Downloading Synthetic Data"
 mkdir -p ${output_folder}/pretraining
-#curl -o ${output_folder}/pretraining/pretraining_data.parquet <tbd>
+curl -o ${output_folder}/pretraining/pretraining_data.parquet https://zenodo.org/records/14971859/files/simulated_p_nmr.parquet?download=1
