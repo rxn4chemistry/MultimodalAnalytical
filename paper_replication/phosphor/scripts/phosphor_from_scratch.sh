@@ -14,7 +14,7 @@ for cv_split in 0 1 2 3 4; do
 
         mkdir -p ${run_folder}/cv_split_${cv_split}
         for set in smiles_rad_1 smiles_rad_2 smiles_rad_3; do
-
+        
             mkdir -p ${run_folder}/cv_split_${cv_split}/${set}_num_2
             python -m analytical_fm.cli.training \
                 working_dir=${run_folder} \

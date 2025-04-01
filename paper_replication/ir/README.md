@@ -19,19 +19,21 @@ To reproduce the the results you need to have this repo installed and the data u
 
 ### Data Download and Processing
 
-We use two datasets to train the models: One pretraining dataset of synthetic <sup>31</sup>P-NMR spectra which we generated ourselves and the dataset by Hack et al. The synthetic dataset is available on [Zenodo](link_here) and the one by Hack et al. is availabe [here](https://github.com/clacor/Ilm-NMR-P31) (last accessed 25.02.2025).
+A total of three datasets were used for this paper: Two synthetic ones containing simulated IR spectra and one experimental one. The synthetic datasets can be obtained by downloading them either from Zendodo ([Dataset 1](https://zenodo.org/records/14770232) and [Dataset 2](https://zenodo.org/records/7928396)) or using the script below.
 
-To download and process the two datasets execute the following script:
-
+To download and merge the two synthetic datasets:
 
 ```
 ./scripts/download_process_data.sh -o data/
 ```
 
-This script downloads the experimental as well as the synthetic data and processes the experimental data into a format compatible with our models. At the same time the experimental data is filtered to remove molecules with more than 35 and less than 5 heavy atoms and duplicates are removed. The data is saved to the specified folder, in this case `data/`.
+This script downloads the synthetic data and processes it into a format compatible with our models. 
 
+The experimental data used in this paper consists of the [NIST/EPA Gas-Phase Infrared Database](https://www.nist.gov/srd/nist-standard-reference-database-35). A license for the dataset can be obtained at the link above. We have supplied a [script](scripts/filter_nist.py) to filter the molecules from the dataset to produce the same finetuning set as used in our paper.
 
 ## Replicating Table 1
+
+
 
 ## Replicating Table 2
 
