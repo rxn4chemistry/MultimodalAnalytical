@@ -8,14 +8,14 @@ from rdkit.Chem import rdMolDescriptors
 
 
 def canonicalise(smiles: str) -> Optional[str]:
-    RDLogger.DisableLog("rdApp.*")
+    RDLogger.DisableLog("rdApp.*") # type:ignore
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
     return Chem.MolToSmiles(mol)
 
 
-def get_env_smiles(smiles: str, radius: int) -> str:
+def get_env_smiles(smiles: str, radius: int) -> Optional[str]:
     mol = Chem.MolFromSmiles(smiles)
 
     for atom in mol.GetAtoms():
@@ -29,7 +29,7 @@ def get_env_smiles(smiles: str, radius: int) -> str:
         if submol_smiles == '':
             if radius == 1:
                 return None
-            submol_smiles = get_env_smiles(smiles, radius-1)
+            submol_smiles = get_env_smiles(smiles, radius-1) # type:ignore
 
         return submol_smiles
     
