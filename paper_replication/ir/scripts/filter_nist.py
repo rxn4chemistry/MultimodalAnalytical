@@ -1,9 +1,11 @@
+import re
+from pathlib import Path
+
 import click
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
-from pathlib import Path
-import re
+
 
 def canonicalise_smiles(smiles: str) -> str:
     mol = Chem.MolFromSmiles(smiles)

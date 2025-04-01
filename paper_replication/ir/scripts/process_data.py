@@ -1,8 +1,9 @@
+from pathlib import Path
+
 import click
+import numpy as np
 import pandas as pd
 import tqdm.auto as tqdm
-from pathlib import Path
-import numpy as np
 
 
 def load_mm_dataset(data_path: Path) -> pd.DataFrame:
