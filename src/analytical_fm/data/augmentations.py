@@ -66,7 +66,7 @@ def augment(dataset: Dataset, augment_config: Optional[DictConfig]) -> Dataset:
             augmented_datasets.append(dataset.map(lambda row : apply_augment(row, augment_column, augment_fns),
                                                   batched=True,
                                                   batch_size=1,
-                                                  #num_proc=7
+                                                  num_proc=7
                                     ))
                                         
     dataset = concatenate_datasets([dataset, *augmented_datasets])

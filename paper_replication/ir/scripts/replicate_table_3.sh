@@ -1,6 +1,6 @@
 #!/bin/bash
 
-while getopts "r:d:a" opt; do
+while getopts "r:d:a:" opt; do
   case $opt in
     r) run_folder="$OPTARG" ;;
     d) data_folder="$OPTARG" ;;

@@ -45,7 +45,7 @@ class PatchPreprocessor:
             self.mean_deriv = gradient.mean()
             self.std_deriv = gradient.std()
 
-    def interpolation(self, spectra: List[float]) -> List[float]:
+    def interpolate_spec(self, spectra: List[float]) -> List[float]:
         old_x = np.arange(400, 3982, 2)
         new_x = np.arange(650, 3900, 2)
         interp = interpolate.interp1d(old_x, spectra)
@@ -61,7 +61,7 @@ class PatchPreprocessor:
         """
 
         if self.interpolation:
-            spectra = [self.interpolation(spectrum) for spectrum in spectra]
+            spectra = [self.interpolate_spec(spectrum) for spectrum in spectra]
 
         # Concert to tensor
         spectra_tensor = torch.Tensor(spectra)

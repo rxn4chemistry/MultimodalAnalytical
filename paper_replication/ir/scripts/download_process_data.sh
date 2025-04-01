@@ -26,9 +26,9 @@ rm ${output_folder}/raw_data/synth_ir_data.zip
 
 # Downloading Pseudo Exp. data for augmentations
 echo "Downloading pseudo experimental spectra for augmentations"
-#mkdir -p ${output_folder}/pseudo_experimental
-#curl -o ${output_folder}/pseudo_experimental/pseudo_experimental.zip https://zenodo.org/records/7928396/files/IRtoMol.zip?download=1
-#unzip ${output_folder}/raw_data/synth_ir_data.zip -d ${output_folder}/pseudo_experimental/
+mkdir -p ${output_folder}/pseudo_experimental
+curl -o ${output_folder}/pseudo_experimental/pseudo_experimental.zip https://zenodo.org/records/15116374/files/pseudo_experimental.zip?download=1
+unzip ${output_folder}/raw_data/synth_ir_data.zip -d ${output_folder}/pseudo_experimental/
 
 # Process IR spectra
 python scripts/process_data.py --data_folder ${output_folder}

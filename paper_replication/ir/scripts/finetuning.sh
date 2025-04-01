@@ -4,7 +4,6 @@ while getopts "r:d:a:c:p:" opt; do
   case $opt in
     r) run_folder="$OPTARG" ;;
     d) data_folder="$OPTARG" ;;
-    a) augment_path="$OPTARG" ;;
     c) ckpt_path="$OPTARG" ;;
     p) preprocessor_path="$OPTARG" ;;
     \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
@@ -38,8 +37,6 @@ for cv_split in 0 1 2 3 4; do
         model.gated_linear=True \
         preprocessor_path=${preprocessor_path} \
         molecules=True \
-        augment=ir/combined \
-        augment.augment_data_path=${augment_path} \
         trainer.epochs=30 \
         cv_split=${cv_split}
 
