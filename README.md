@@ -2,7 +2,7 @@
 
 This repository contains the official implementation of the research presented in:
 - ["From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation"](https://chemrxiv.org/engage/chemrxiv/article-details/67c813e86dde43c90891f1f6)
-- ["Setting New Benchmarks in AI-driven Infrared Structure Elucidation"]()
+- ["Setting New Benchmarks in AI-driven Infrared Structure Elucidation"](https://chemrxiv.org/engage/chemrxiv/article-details/67eaab5c6dde43c908da98cd)
   
 It provides the complete codebase needed to reproduce our results and train models on <sup>31</sup>P-NMR spectra and IR spectra. The framework is build on PyTorch, PyTorch Lightning and Hugginface. To install it follow the instructions below.
 
