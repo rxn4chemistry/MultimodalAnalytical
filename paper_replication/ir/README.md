@@ -2,7 +2,7 @@
 
 ## Overview
 
-The following document contains the steps to reproduce the results in [Setting New Benchmarks in AI-driven Infrared Structure Elucidation](). All scripts were tested on Linux and MacOS. The scripts below allow the pretraining of the models in the paper on the synthetic data in addition to downloading all synthetic data used as part of the paper as well as our best pretrained model. Due licencing of the experimental dataset we can not release the finetuned models but provide functionality to easily finetune them yourself.
+The following document contains the steps to reproduce the results in [Setting New Benchmarks in AI-driven Infrared Structure Elucidation](https://chemrxiv.org/engage/chemrxiv/article-details/67eaab5c6dde43c908da98cd). All scripts were tested on Linux and MacOS. The scripts below allow the pretraining of the models in the paper on the synthetic data in addition to downloading all synthetic data used as part of the paper as well as our best pretrained model. Due licencing of the experimental dataset we can not release the finetuned models but provide functionality to easily finetune them yourself.
 
 <p align='center'>
   <img src='../figures/ir.png'>
