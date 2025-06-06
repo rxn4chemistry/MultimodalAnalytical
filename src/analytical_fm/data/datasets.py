@@ -175,7 +175,7 @@ def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: 
 
 
 def build_dataset_multimodal(
-    data_config: Dict[str, Any],
+    data_config: Dict[Any, Any],
     data_path: str,
     splitting: str,
     cv_split: int,
