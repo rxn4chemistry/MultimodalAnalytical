@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Structure Elucidation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .papers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .paper-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .paper-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .paper-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .paper-image:hover {
+            opacity: 0.8;
+        }
+
+        .paper-content {
+            padding: 1.5rem;
+        }
+
+        .paper-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .paper-authors {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+
+        .paper-abstract {
+            color: #555;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            text-align: justify;
+        }
+
+        .arxiv-link {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #e74c3c;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .arxiv-link:hover {
+            background-color: #c0392b;
+        }
+
+        @media (max-width: 768px) {
+            .papers-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Automated Structure Elucidation</h1>
+        <p>Collected papers on automated structure elucidation published at IBM Research.</p>
+    </header>
+
+    <div class="container">
+        <div class="papers-grid">
+            
+            <!-- Paper 1 Example -->
+            <div class="paper-card">
+                <img src="static/mm_dataset.png" 
+                     alt="Unraveling Molecular Structure: A Multimodal Spectroscopic Dataset for Chemistry" 
+                     class="paper-image"
+                     onclick="window.open('https://arxiv.org/abs/2407.17492', '_blank')">
+                <div class="paper-content">
+                    <h2 class="paper-title">Unraveling Molecular Structure: A Multimodal Spectroscopic Dataset for Chemistry</h2>
+                    <p class="paper-authors">Marvin Alberts, Oliver Schilter, Federico Zipoli, Nina Hartrampf and Teodoro Laino</p>
+                    <p class="paper-abstract">
+                        Spectroscopic techniques are essential tools for determining the structure of molecules. Different spectroscopic techniques, such as Nuclear magnetic resonance (NMR), Infrared spectroscopy, and Mass Spectrometry, provide insight into the molecular structure, including the presence or absence of functional groups. Chemists leverage the complementary nature of the different methods to their advantage. However, the lack of a comprehensive multimodal dataset, containing spectra from a variety of spectroscopic techniques, has limited machine-learning approaches mostly to single-modality tasks for predicting molecular structures from spectra. Here we introduce a dataset comprising simulated 1H-NMR, 13C-NMR, HSQC-NMR, Infrared, and Mass spectra (positive and negative ion modes) for 790k molecules extracted from chemical reactions in patent data. This dataset enables the development of foundation models for integrating information from multiple spectroscopic modalities, emulating the approach employed by human experts. Additionally, we provide benchmarks for evaluating single-modality tasks such as structure elucidation, predicting the spectra for a target molecule, and functional group predictions. This dataset has the potential automate structure elucidation, streamlining the molecular discovery pipeline from synthesis to structure determination.
+                    </p>
+                    <a href="https://arxiv.org/abs/2407.17492" class="arxiv-link" target="_blank">View on arXiv</a>
+                </div>
+            </div>
+
+            <!-- Paper 2 Example -->
+            <div class="paper-card">
+                <img src="static/ir_v1.png" 
+                     alt="Leveraging infrared spectroscopy for automated structure elucidation" 
+                     class="paper-image"
+                     onclick="window.open('https://www.nature.com/articles/s42004-024-01341-w', '_blank')">
+                <div class="paper-content">
+                    <h2 class="paper-title">Leveraging infrared spectroscopy for automated structure elucidation</h2>
+                    <p class="paper-authors">Marvin Alberts, Teodoro Laino and Alain C. Vaucher</p>
+                    <p class="paper-abstract">
+                        The application of machine learning models in chemistry has made remarkable strides in recent years. While analytical chemistry has received considerable interest from machine learning practitioners, its adoption into everyday use remains limited. Among the available analytical methods, Infrared (IR) spectroscopy stands out in terms of affordability, simplicity, and accessibility. However, its use has been limited to the identification of a selected few functional groups, as most peaks lie beyond human interpretation. We present a transformer model that enables chemists to leverage the complete information contained within an IR spectrum to directly predict the molecular structure. To cover a large chemical space, we pretrain the model using 634,585 simulated IR spectra and fine-tune it on 3,453 experimental spectra. Our approach achieves a top–1 accuracy of 44.4% and top–10 accuracy of 69.8% on compounds containing 6 to 13 heavy atoms. When solely predicting scaffolds, the model accurately predicts the top–1 scaffold in 84.5% and among the top–10 in 93.0% of cases.
+                    </p>
+                    <a href="https://www.nature.com/articles/s42004-024-01341-w" class="arxiv-link" target="_blank">View Paper</a>
+                </div>
+            </div>
+
+            <!-- Paper 3 Example -->
+            <div class="paper-card">
+                <img src="static/ir_v2.png" 
+                     alt="Setting New Benchmarks in AI-driven Infrared Structure Elucidation" 
+                     class="paper-image"
+                     onclick="window.open('https://chemrxiv.org/engage/chemrxiv/article-details/67eaab5c6dde43c908da98cd', '_blank')">
+                <div class="paper-content">
+                    <h2 class="paper-title">Setting New Benchmarks in AI-driven Infrared Structure Elucidation</h2>
+                    <p class="paper-authors">Marvin Alberts, Federico Zipoli and Teodoro Laino</p>
+                    <p class="paper-abstract">
+                        Automated structure elucidation from infrared (IR) spectra represents a significant breakthrough in analytical chemistry, having recently gained momentum through the application of Transformer-based language models. In this work, we improve our original Transformer architecture, refine spectral data representations, and implement novel augmentation and decoding strategies to significantly increase performance. We report a Top–1 accuracy of 63.79% and a Top–10 accuracy of 83.95% compared to the current performance of state-of-the-art models of 53.56% and 80.36%, respectively. Our findings not only set a new performance benchmark but also strengthen confidence in the promising future of AI-driven IR spectroscopy as a practical and powerful tool for structure elucidation. To facilitate broad adoption among chemical laboratories and domain experts, we openly share our models and code.
+                    </p>
+                    <a href="https://chemrxiv.org/engage/chemrxiv/article-details/67eaab5c6dde43c908da98cd" class="arxiv-link" target="_blank">View on ChemRxiv</a>
+                </div>
+            </div>
+
+            <!-- Add more paper cards here by copying the structure above -->
+            
+        </div>
+    </div>
+</body>
+</html>
