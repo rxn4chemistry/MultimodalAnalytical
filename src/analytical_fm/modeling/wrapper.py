@@ -1,7 +1,9 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pytorch_lightning as pl
 import torch
+from omegaconf.listconfig import ListConfig
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 from torch import nn
@@ -17,12 +19,11 @@ from transformers import (
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import Seq2SeqModelOutput
 
-from analytical_fm.utils import calc_sampling_metrics
-
 from ..generation.logit_processors import GuidedFormulaProcessor
+from analytical_fm.utils import calc_sampling_metrics
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
-from .custom_modeling import CustomConfig, CustomModel
-from .utils import DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
+from .custom_modeling import AlignConfig, CustomConfig, CustomModel
+from .utils import CustomLMOutput, DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
 
 OPTIMISER_REGISTRY = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
 
@@ -146,7 +147,7 @@ def load_custom_model(
     multimodal_norm: bool,
     **kwargs,
 ) -> Tuple[CustomModel, MultimodalEmbedding]:
-    
+        
     model_config = CustomConfig.from_pretrained(
         model_name,
         vocab_size=target_tokenizer.vocab_size,
@@ -158,8 +159,11 @@ def load_custom_model(
         **kwargs,
     )
 
+    if model_config.align_config and not isinstance(model_config.align_config, AlignConfig):
+        model_config.align_config = AlignConfig(**model_config.align_config)
+
     multimodal_embedding_layer = MultimodalEmbedding(
-        data_config, model_config.d_model, multimodal_norm, do_positional_encodings=True, positional_encodings_type=model_config.positional_encoding_type
+        data_config, model_config.d_model, multimodal_norm, do_positional_encodings=True, positional_encodings_type=model_config.positional_encoding_type, max_seq_len=model_config.max_position_embeddings
     )
 
     custom_model = CustomModel(target_modality, target_tokenizer, model_config, multimodal_embedding_layer)
@@ -234,6 +238,7 @@ class HFWrapper(pl.LightningModule):
         adam_beta1: float = 0.9,
         adam_beta2: float = 0.999,
         multimodal_norm: bool = True,
+        modality_dropout: Optional[List[str]] = None,
         **kwargs,
     ) -> None:
         """Init
@@ -251,7 +256,6 @@ class HFWrapper(pl.LightningModule):
             multimodal_norm: Wether to apply layer norm to embedding or not
             kwargs: Additional Model parameters
         """
-
         super().__init__()
 
         # Wrapper Arguments
@@ -264,6 +268,7 @@ class HFWrapper(pl.LightningModule):
         self.model_name = model_name
         self.data_config = data_config
         self.multimodal_norm = multimodal_norm
+        self.modality_dropout = modality_dropout
         self.guided_generation = kwargs['guided_generation'] if 'guided_generation' in kwargs else False
 
         # Extract Target modality
@@ -302,6 +307,7 @@ class HFWrapper(pl.LightningModule):
             pad_token_id=self.target_tokenizer.pad_token_id,
         )
 
+        self.n_beams = kwargs["n_beams"] if "n_beams" in kwargs else 10
         self._init_params()
 
     def _init_params(self):
@@ -351,18 +357,39 @@ class HFWrapper(pl.LightningModule):
 
         labels = batch["target"].T.contiguous()
 
+        # Modality Dropout
+        if isinstance(self.modality_dropout, ListConfig) and self.training:
+
+            selected_modalities_to_drop = np.random.choice(self.modality_dropout,
+                                                           np.random.randint(0, len(self.modality_dropout)),
+                                                           replace=False)
+            attention_mask_split = list()
+            modality_index = 0
+            for modality, modality_input_ids in input_ids.items():
+                # Only keep attention mask to not dropped modalities
+                if modality not in selected_modalities_to_drop:
+                    attention_mask_split.append(attention_mask[:, modality_index : (modality_index+modality_input_ids.shape[1])])
+                modality_index += modality_input_ids.shape[1]
+            [input_ids.pop(modality) for modality in selected_modalities_to_drop]
+            attention_mask = torch.concat(attention_mask_split, dim=-1)
+
         # Replace pad_token_id with -100 to conform with HF loss calcs
         labels[labels == self.target_tokenizer.pad_token_id] = -100
 
         # Make encoder embedding
         inputs_embeds = self.multimodal_embedding(input_ids)
 
+        kwargs = {}
+        if isinstance(self.hf_model, CustomModel) and "encoder_alignment_input" in batch:
+            kwargs = {"encoder_align_target": batch["encoder_alignment_input"]}
+        
         model_output = self.hf_model(
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input,
             decoder_attention_mask=decoder_attention_mask,
             labels=labels,
+            **kwargs
         )
 
         return model_output
@@ -434,6 +461,18 @@ class HFWrapper(pl.LightningModule):
                 logger=True,
                 sync_dist=True,
             )
+            if isinstance(model_output, CustomLMOutput):
+                if model_output.loss_dict:
+                    for key in model_output.loss_dict.keys():
+                        if model_output.loss_dict[key]:
+                            self.log(
+                                f"train_{key}",
+                                model_output.loss_dict[key],
+                                prog_bar=True,
+                                on_step=True,
+                                logger=True,
+                                sync_dist=True,
+                            )
 
         return loss
 
@@ -462,9 +501,13 @@ class HFWrapper(pl.LightningModule):
         val_outputs = {
             "val_loss": loss,
             "val_token_acc": token_acc,
-            "val_molecular_accuracy_tensorboard": torch.Tensor([scores["Top-1"]]),
-            "val_molecular_accuracy": torch.Tensor([scores["Top-1"]]),
+            "val_molecular_accuracy_tensorboard": torch.Tensor([scores["Top-1"]]).to(device=loss.device),
+            "val_molecular_accuracy": torch.Tensor([scores["Top-1"]]).to(device=loss.device),
         }
+        if isinstance(model_output, CustomLMOutput):
+            if model_output.loss_dict:
+                for key in model_output.loss_dict.keys():
+                    val_outputs[f"val_{key}"] = model_output.loss_dict[key]
 
         self.validation_step_outputs.append(val_outputs)
         return val_outputs
@@ -490,15 +533,20 @@ class HFWrapper(pl.LightningModule):
         
         if self.guided_generation:
             target_formula = [rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles)) for smiles in batch["target_smiles"]]
-            n_beams = 10
-            logit_processor = [GuidedFormulaProcessor(n_beams, target_formula, self.target_tokenizer)]
-            generated_sequences = self.generate(batch, n_beams=n_beams, logits_processor=logit_processor)
+            logit_processor = [GuidedFormulaProcessor(self.n_beams, target_formula, self.target_tokenizer)]
+            generated_sequences = self.generate(batch, n_beams=self.n_beams, logits_processor=logit_processor)
         else:
-            generated_sequences = self.generate(batch, n_beams=10)
+            generated_sequences = self.generate(batch, n_beams=self.n_beams)
         
         decoded_sequences = self.target_tokenizer.batch_decode(generated_sequences, skip_special_tokens=True)
+
+        extra = {}
+        for key in batch.keys():
+            if not key.startswith("encoder_") and not key.startswith("decoder_") and not key.startswith("target_"):
+                extra[key] = batch[key]
+                
         
-        return {"loss": loss, "predictions": decoded_sequences, "targets": batch['target_smiles']}
+        return {"loss": loss, "predictions": decoded_sequences, "targets": batch['target_smiles'], **extra}
 
     def _avg_dicts(self, colls: List[Dict[str, Any]]) -> Dict[str, Any]:
         complete_dict: Dict[str, list] = {key: [] for key, val in colls[0].items()}
@@ -506,7 +554,7 @@ class HFWrapper(pl.LightningModule):
             for key in complete_dict.keys():
                 complete_dict[key].append(coll[key])
 
-        avg_dict = {key: sum(metric) / len(metric) for key, metric in complete_dict.items()}
+        avg_dict = {key: sum(metric) / len(metric) for key, metric in complete_dict.items() if not any([m is None for m in metric])}
         return avg_dict
 
     def _log_dict(self, coll):

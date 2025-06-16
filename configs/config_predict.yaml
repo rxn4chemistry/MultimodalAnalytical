@@ -15,7 +15,9 @@ cv_split: 0
 
 finetuning: False
 molecules: True
-mixture: null
+num_cpu: 7
+predict_class: null
+mixture: null 
 
 trainer:
   log_dir: ${working_dir}
@@ -39,3 +41,5 @@ defaults:
   - hydra: default
 
   - debug: null
+
+  - mixture: null

@@ -1,14 +1,46 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
 from torch import nn
+from transformers.modeling_outputs import Seq2SeqLMOutput
 
 
+def kl_div(p, q, reduction: Optional[str]=None, eps: float = 1e-16):
+    q = q.clamp(min=eps)
+    p = p.clamp(min=eps)
+
+    kl = (p * (p / q).log())
+    if reduction == "batchmean":
+        return kl.sum() / p.shape[0]
+    elif reduction == "sum":
+        return kl.sum()
+    elif not reduction:
+        return kl.sum(dim=-1)
+
+def sid(x: torch.Tensor, y: torch.Tensor):
+    return kl_div(x,y, reduction="batchmean") + kl_div(y,x, reduction="batchmean")
+
+class CustomLMOutput(Seq2SeqLMOutput):
+    """Augment Seq2SeqLMOutput with single losses"""
+    def __init__(self, loss_dict: Optional[Dict[str, float]], **kwargs):
+        super(CustomLMOutput, self).__init__(**kwargs)
+        self.loss_dict = loss_dict
+
+
+class Lambda(nn.Module):
+    """Lambda modiule to use custom functions in nn.Sequential."""
+    def __init__(self, func):
+        super(Lambda, self).__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+    
 class MultimodalEmbedding(nn.Module):
     """Multimodal Embedding Layer"""
 
     def __init__(
-        self, data_config: Dict[str, Any], d_model: int, embedding_norm: bool, do_positional_encodings: bool = False, positional_encodings_type: str = "sin_cos"
+        self, data_config: Dict[str, Any], d_model: int, embedding_norm: bool, do_positional_encodings: bool = False, positional_encodings_type: str = "sin_cos", max_seq_len: int = 1024
     ) -> None:
         """Init.
         Args:
@@ -22,6 +54,7 @@ class MultimodalEmbedding(nn.Module):
         self.d_model = d_model
         self.embedding_norm = embedding_norm
         self.do_positional_encodings = do_positional_encodings
+        self.max_seq_len = max_seq_len
 
         self.embedding_layer_dict = nn.ModuleDict()
         self.embedding_norm_dict = nn.ModuleDict()
@@ -35,7 +68,7 @@ class MultimodalEmbedding(nn.Module):
                 self.embedding_norm_dict[modality] = nn.LayerNorm(self.d_model)
 
         if self.do_positional_encodings:
-            self.positional_encodings = POS_ENC_REGISTRY[positional_encodings_type](d_model)
+            self.positional_encodings = POS_ENC_REGISTRY[positional_encodings_type](d_model, self.max_seq_len)
 
     def _create_embedding(
         self, modality_config: Dict[str, Any]
