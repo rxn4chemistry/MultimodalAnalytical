@@ -48,39 +48,5 @@ for task in binary_1_9 binary_3_7 binary_4_6; do
         model.align_config.align_network=${reconstruction_net}
 
     cat ${run_folder}/${task}_align_${reconstruction_net}_${reconstruction_loss}_${lambda}/metrics*
-        
-    patience=33
-    for i in {0..4}
-    do
-
-        echo "Fine-Tuning on fold $i"
-
-        python3 src/analytical_fm/cli/training.py \ 
-            working_dir=${run_folder} \ 
-            job_name=${task}_align_${reconstruction_net}_${reconstruction_loss}_${lambda}/finetuned_${i} \ 
-            cv_split=${i} \ 
-            data_path=${data_folder}/finetuning \ 
-            data=ir/patches_mixture_text_percentage_align \ 
-            model=${model} \ 
-            molecules=True \ 
-            trainer.epochs=${n_epochs} \ 
-            trainer.val_check_interval=${val_check_int} \ 
-            trainer.early_stopping_patience=${patience} \ 
-            model.lr=${learning_rate} \ 
-            data.IR.preprocessor_arguments.patch_size=${num_points_for_patch} \ 
-            model.positional_encoding_type=learned \ 
-            model.gated_linear=True \ 
-            model.optimiser=adamw \ 
-            mixture=ir/${task} \ 
-            num_cpu=${n_cpus } \ 
-            splitting=unique_target \ 
-            model.align_config.loss_lambda=${lambda} \ 
-            model.align_config.loss_function=${reconstruction_loss} \ 
-            model.align_config.align_network=${reconstruction_net} \ 
-            finetuning=True \ 
-            preprocessor_path=${run_folder}/${task}_align_${reconstruction_net}_${reconstruction_loss}_${lambda}/preprocessor.pkl \  
-            model.model_checkpoint_path=${run_folder}/${task}_align_${reconstruction_net}_${reconstruction_loss}_${lambda}/version_0/checkpoints/best.ckpt
-
-        cat ${run_folder}/${task}_align_${reconstruction_net}_${reconstruction_loss}_${lambda}/finetuned_${i}/metrics*
     done
 done

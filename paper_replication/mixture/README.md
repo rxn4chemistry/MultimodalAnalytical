@@ -31,6 +31,8 @@ This script downloads the synthetic data and processes it into a format compatib
 
 The experimental data used in this paper consists of the [NIST/EPA Gas-Phase Infrared Database](https://www.nist.gov/srd/nist-standard-reference-database-35). A license for the dataset can be obtained at the link above. We have supplied a [script](scripts/filter_nist.py) to filter the molecules from the dataset to produce the same finetuning set as used in our paper.
 
+**NOTE: Finetuning script is ommitted for all the scripts, for readability. To run finetuning refere to `./scripts/replicate_table_3.sh`.**
+
 ## Replicating Table 1
 
 Table 1 contains the script replicate the results and **pretrain** the models on the synthetic data and **fine-tune** on real data for *binary balanced mixtures*. For this use the script `replicate_table_1.sh`. See below for usage:
@@ -63,7 +65,7 @@ To run the ablation study use the script `replicate_table_2_and_10.sh`. See belo
 
 ## Replicating Table 3
 
-In Table 3 in the main paper we assess the improvement in performance for the *binary balanced* model when using the best configuration for the **encoder alignment**. To run the evaluation use the script `replicate_table_3.sh`. See below for usage:
+In Table 3 in the main paper we assess the improvement in performance for the *binary balanced* finetuned model when using the best configuration for the **encoder alignment**. To run the evaluation use the script `replicate_table_3.sh`. See below for usage:
 
 ```
 ./scripts/replicate_table_3.sh -r runs/ -d data
