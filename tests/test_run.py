@@ -5,7 +5,7 @@ def test_training() -> None:
     """Test training script via CLI invocation."""
     
     process = subprocess.Popen([
-            "python", "scripts/cli/training.py",
+            "python", "src/analytical_fm/cli/training.py",
             "working_dir=runs",
             "job_name=train",
             "data=ir/patches",
@@ -26,7 +26,7 @@ def test_predicting() -> None:
     """Test predict script via CLI invocation."""
     
     process = subprocess.Popen([
-            "python", "scripts/cli/predict.py",
+            "python", "src/analytical_fm/cli/predict.py",
             "working_dir=runs",
             "job_name=predict",
             "data=ir/patches",
