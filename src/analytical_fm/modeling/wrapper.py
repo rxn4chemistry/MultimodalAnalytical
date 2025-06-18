@@ -19,8 +19,9 @@ from transformers import (
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import Seq2SeqModelOutput
 
-from ..generation.logit_processors import GuidedFormulaProcessor
 from analytical_fm.utils import calc_sampling_metrics
+
+from ..generation.logit_processors import GuidedFormulaProcessor
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
 from .custom_modeling import AlignConfig, CustomConfig, CustomModel
 from .utils import CustomLMOutput, DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding

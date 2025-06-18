@@ -6,9 +6,10 @@ from datasets import Dataset, IterableDataset
 from rdkit import Chem
 from transformers import AutoTokenizer
 
-from ..configuration import DEFAULT_SETTINGS
 from analytical_fm.data.preprocessors import PREPROCESSORS, return_type
 from analytical_fm.data.tokenizer import build_regex_tokenizer
+
+from ..configuration import DEFAULT_SETTINGS
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

@@ -1,13 +1,14 @@
 [project]
-name = "mmbart"
+name = "analytical_fm"
 version = "0.0.1"
-description = "BART model for multimodal spectra processing"
+description = "Analytical Models for multimodal spectra processing"
 authors = [
     {name = "AI4SD team", email = "ai4sd@zurich.ibm.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
+    "tqdm>=4.25.0",
     "hydra-core>=1.3.2",
     "datasets>=2.14.4",
     "numpy>=1.24.4",
@@ -36,11 +37,13 @@ dependencies = [
 include-package-data = true
 
 [tool.setuptools.packages]
-find = { where = ["src"], include = ["mmbart"] }
+find = { where = ["src"], include = ["analytical_fm"] }
 
 [tool.setuptools.package-data]
-"mmbart" = [
-    "resources/test_data/scoring/test_data.pkl",
+"analytical_fm" = [
+    "py.typed",
+    "modeling/resources/train_pipeline_configuration_example.yaml",
+    "../configs/**",
 ]
 
 [tool.uv]
@@ -51,6 +54,25 @@ priority = "primary"
 
 # For extras
 [project.optional-dependencies]
+modeling = [
+    "accelerate>=0.33.0",
+    "click>=8.1.7",
+    "datasets>=2.19.2",
+    "pydantic>=2.6.3",
+    "pydantic-settings>=2.2.1",
+    "torch>=2.2.2",
+    "transformers>=4.41.2",
+]
+data_analysis = [
+    "click>=8.1.7",
+    "datasets>=2.19.2",
+    "ibm-generative-ai>=3.0.0",
+    "pandas",
+    "pydantic>=2.6.3",
+    "pydantic-settings>=2.2.1",
+    "python-dotenv",
+    "loguru>=0.7.2",
+]
 dev = [
     "isort>=5.13.2",
     "jupyter>=1.0.0",
@@ -61,7 +83,6 @@ dev = [
     "pytest-cov>=2.8.1",
     "ruff>=0.7.4",
     "types-setuptools>=57.4.14",
-    "ipdb>=0.13.13"
 ]
 
 # [tool.uv]
@@ -72,6 +93,10 @@ dev = [
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.scripts]
+train_model = "analytical_fm.cli.training:main"
+predict = "analytical_fm.cli.predict:main"
 
 
 [tool.mypy]
@@ -84,7 +109,7 @@ module = [
     "torch.*",
     "transformers.*",
     "yaml.*",
-    "mmbart.*",
+    "analytical_fm.*",
     "tokenizers.*",
     "pandas.*",
     "scipy.*",
