@@ -5,6 +5,13 @@ Formula:
   preprocessor_arguments:
     tokenizer: formula
     tokenizer_regex: ([A-Z]{1}[a-z]?[0-9]*)
+Percentage:
+  type: text
+  column: percentage
+  target: False
+  preprocessor_arguments:
+    tokenizer: percentage
+    tokenizer_regex: \d*\.\d+
 IR:
   type: 1D_patches
   column: ir_spectra

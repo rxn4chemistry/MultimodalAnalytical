@@ -1,0 +1,40 @@
+balanced:
+  n_compounds: 2
+  compounds_ratio: null
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000  
+  parallel_samples: 16384
+  normalize: True
+unbalanced_3_7:
+  n_compounds: 2
+  compounds_ratio: [0.3, 0.7]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: True
+unbalanced_1_9:
+  n_compounds: 2
+  compounds_ratio: [0.1, 0.9]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: True
+unbalanced_4_6:
+  n_compounds: 2
+  compounds_ratio: [0.4, 0.6]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: True
+unbalanced_2_8:
+  n_compounds: 2
+  compounds_ratio: [0.2, 0.8]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: True

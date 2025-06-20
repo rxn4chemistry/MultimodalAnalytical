@@ -13,6 +13,14 @@ IR:
     patch_size: 125
     interplation_merck: False
     masking: False
+Percentage:
+  type: 1D_patches
+  column: percentage
+  target: False
+  preprocessor_arguments:
+    patch_size: 1
+    interplation_merck: False
+    masking: False
 Smiles:
   type: text
   column: smiles

@@ -50,7 +50,7 @@ def smiles_augment(smiles: str, n_augments: int) -> List[str]:
 AUGMENT_OPTIONS = {"horizontal": horizontal_shift_augment, "smooth": smooth_augment, "smiles_aug": smiles_augment}
 
 # Todo: Move Augmentations into datamodule and do augmentations on the fly
-def augment(dataset: Dataset, augment_config: Optional[DictConfig]) -> Dataset:
+def augment(dataset: Dataset, augment_config: Optional[DictConfig], num_cpu: int) -> Dataset:
 
     if not isinstance(augment_config, DictConfig):
         return dataset
@@ -66,7 +66,7 @@ def augment(dataset: Dataset, augment_config: Optional[DictConfig]) -> Dataset:
             augmented_datasets.append(dataset.map(lambda row : apply_augment(row, augment_column, augment_fns),
                                                   batched=True,
                                                   batch_size=1,
-                                                  num_proc=7
+                                                  num_proc=num_cpu
                                     ))
                                         
     dataset = concatenate_datasets([dataset, *augmented_datasets])

@@ -12,8 +12,8 @@ from scipy import interpolate
 from sklearn.cluster import OPTICS, KMeans
 from transformers import AutoTokenizer
 
-from analytical_fm.data.tokenizer import build_regex_tokenizer
-from analytical_fm.defaults import DEFAULT_SAMPLES
+from ...configuration import DEFAULT_SETTINGS
+from ..tokenizer import build_regex_tokenizer
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -317,7 +317,7 @@ class TextSpectrumPreprocessor:
     ) -> None:
         indices = np.arange(0, len(spectra), 1)
         chosen_indices = np.random.choice(
-            indices, size=min(len(spectra), DEFAULT_SAMPLES), replace=False
+            indices, size=min(len(spectra), DEFAULT_SETTINGS.default_samples), replace=False
         )
         if isinstance(spectra, list):
             sampled_spectra = [spectra[i] for i in chosen_indices]
