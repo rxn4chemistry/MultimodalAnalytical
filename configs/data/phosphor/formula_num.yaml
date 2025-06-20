@@ -12,7 +12,7 @@ Phosphor_NMR:
   preprocessor_arguments:
     patch_size: 1
     masking: False
-    interpolation: False
+    interplation_merck: False
     encoding_type: linear
 Smiles:
   type: text

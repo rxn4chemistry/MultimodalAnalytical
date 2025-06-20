@@ -7,12 +7,37 @@ from transformers.generation import GenerationMixin
 from transformers.modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
-    Seq2SeqLMOutput,
 )
 from transformers.modeling_utils import PreTrainedModel
 
-from .utils import MultimodalEmbedding
+from .utils import CustomLMOutput, Lambda, MultimodalEmbedding, sid
 
+LOSS_FACTORY: Dict[str, Callable] = {
+    "mse": nn.MSELoss(),
+    "mae": nn.L1Loss(),
+    "sid": sid
+}
+
+
+class AlignConfig:
+    """Config for Encoder Alignment."""
+    def __init__(
+        self,
+        align_network: str,
+        hidden_dimension: int,
+        conv_channels: int,
+        kernel_size: int,
+        output_dimension: int,
+        loss_lambda: float,
+        loss_function: str
+    ):
+        self.align_network = align_network
+        self.hidden_dimension = hidden_dimension
+        self.conv_channels = conv_channels
+        self.kernel_size = kernel_size
+        self.output_dimension = output_dimension
+        self.loss_lambda = loss_lambda
+        self.loss_function = loss_function
 
 class CustomConfig(PretrainedConfig):
     """Config for the Custom Model."""
@@ -20,6 +45,7 @@ class CustomConfig(PretrainedConfig):
     def __init__(
         self,
         d_model: int = 512,
+        max_position_embeddings: int = 1024,
         encoder_layers: int = 6,
         encoder_attention_heads: int = 8,
         encoder_ffn_dim: int = 2048,
@@ -28,6 +54,7 @@ class CustomConfig(PretrainedConfig):
         decoder_ffn_dim: int = 2048,
         dropout: float = 0.1,
         activation_function: str | Callable = 'gelu',
+        post_layer_normalisation: bool = True,
         gated_linear: bool = False,
         positional_encoding_type: str = 'sin_cos',
         bos_token_id: int = 2,
@@ -36,10 +63,12 @@ class CustomConfig(PretrainedConfig):
         decoder_start_token_id: int = 2,
         forced_eos_token_id: int = 3,
         guided_generation: bool = False,
+        align_config: Optional[AlignConfig] = None,
         **kwargs
     ) -> None:
 
         self.d_model = d_model
+        self.max_position_embeddings = max_position_embeddings
 
         self.encoder_layers = encoder_layers
         self.encoder_attention_heads = encoder_attention_heads
@@ -52,6 +81,7 @@ class CustomConfig(PretrainedConfig):
         self.dropout = dropout
         self.activation_function = activation_function
         self.gated_linear = gated_linear
+        self.post_layer_normalisation = post_layer_normalisation
         self.positional_encoding_type = positional_encoding_type
 
         self.bos_token_id = bos_token_id
@@ -61,6 +91,12 @@ class CustomConfig(PretrainedConfig):
         self.forced_eos_token_id = forced_eos_token_id
 
         self.guided_generation = guided_generation
+
+
+        if align_config and not isinstance(align_config, AlignConfig):
+            align_config = AlignConfig(**align_config)
+
+        self.align_config = align_config
         
         super().__init__(
             pad_token_id=pad_token_id,
@@ -81,7 +117,8 @@ class CustomEncoderLayer(nn.TransformerEncoderLayer):
                  encoder_ffn_dim: int,
                  dropout: float,
                  activation_function: str | Callable,
-                 gated_linear: bool = False):
+                 gated_linear: bool = False,
+                 post_layer_normalisation: bool = True):
         
         super().__init__(d_model=d_model,
                        nhead=encoder_attention_heads,
@@ -89,7 +126,7 @@ class CustomEncoderLayer(nn.TransformerEncoderLayer):
                        dropout=dropout,
                        activation=activation_function,
                        batch_first=True,
-                       norm_first=True)
+                       norm_first=post_layer_normalisation)
 
         self.gated_linear = gated_linear
         if gated_linear:
@@ -123,7 +160,8 @@ class CustomDecoderLayer(nn.TransformerDecoderLayer):
                  decoder_ffn_dim: int,
                  dropout: float,
                  activation_function: str | Callable,
-                 gated_linear: bool = False) -> None:
+                 gated_linear: bool = False,
+                 post_layer_normalisation: bool = True) -> None:
         
         super().__init__(d_model=d_model,
                        nhead=decoder_attention_heads,
@@ -131,7 +169,7 @@ class CustomDecoderLayer(nn.TransformerDecoderLayer):
                        dropout=dropout,
                        activation=activation_function,
                        batch_first=True,
-                       norm_first=True)
+                       norm_first=post_layer_normalisation)
 
         self.gated_linear = gated_linear
         if gated_linear:
@@ -279,7 +317,7 @@ class CustomModel(PreTrainedModel, GenerationMixin):
                  target_modality,
                  target_tokenizer,
                  config: CustomConfig,
-                 multimodal_embedding_layer: MultimodalEmbedding
+                 multimodal_embedding_layer: MultimodalEmbedding,
                  ):
         """
         Args:
@@ -304,8 +342,53 @@ class CustomModel(PreTrainedModel, GenerationMixin):
                                        config.encoder_ffn_dim,
                                        config.dropout,
                                        config.activation_function,
-                                       config.gated_linear)
+                                       config.gated_linear,
+                                       config.post_layer_normalisation)
         self.encoder = CustomEncoder(enc_layer, config.encoder_layers, norm=enc_norm)
+
+        # align the encoder mixture representation to the target ir
+        self.align_network = None
+        if config.align_config:
+            if config.align_config.align_network == "convolutional":
+                self.align_network = nn.Sequential(
+                    nn.Linear(
+                        config.d_model,
+                        config.align_config.hidden_dimension
+                    ),
+                    nn.ReLU(),
+                    nn.Linear(
+                        config.align_config.hidden_dimension,
+                        config.align_config.hidden_dimension
+                    ),
+                    Lambda(lambda x: x.unsqueeze(-1)),
+                    nn.Conv1d(
+                        in_channels=config.align_config.hidden_dimension,
+                        out_channels=config.align_config.conv_channels,
+                        kernel_size=config.align_config.kernel_size,
+                        padding=config.align_config.kernel_size // 2
+                    ),
+                    nn.ReLU(),
+                    nn.Conv1d(
+                        in_channels=config.align_config.conv_channels,
+                        out_channels=config.align_config.output_dimension,
+                        kernel_size=1
+                    ),
+                    nn.Sigmoid(),
+                    Lambda(lambda x: x.squeeze(-1)),
+                )
+            elif config.align_config.align_network == "mlp":
+                self.align_network = nn.Sequential(
+                    nn.Linear(
+                        config.d_model,
+                        config.align_config.hidden_dimension
+                    ),
+                    nn.ReLU(),
+                    nn.Linear(
+                        config.align_config.hidden_dimension,
+                        config.align_config.output_dimension
+                    ),
+                    nn.Sigmoid()
+                )
 
         # Decoder
         dec_norm = nn.LayerNorm(config.d_model)
@@ -314,7 +397,8 @@ class CustomModel(PreTrainedModel, GenerationMixin):
                                        config.decoder_ffn_dim,
                                        config.dropout,
                                        config.activation_function,
-                                       config.gated_linear)
+                                       config.gated_linear,
+                                       config.post_layer_normalisation)
         self.decoder = CustomDecoder(dec_layer,
                                      config.decoder_layers,
                                      norm=dec_norm,
@@ -333,8 +417,9 @@ class CustomModel(PreTrainedModel, GenerationMixin):
         decoder_attention_mask: Optional[torch.LongTensor] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = False, # noqa: ARG002
-        return_dict: Optional[bool] = False # noqa: ARG002
-    ) -> Seq2SeqLMOutput:
+        return_dict: Optional[bool] = False, # noqa: ARG002
+        encoder_align_target: Optional[torch.Tensor] = None
+    ) -> CustomLMOutput:
         """ Forward. Converts input from HF into a form compatible w. torch Transformer.
         Args:
             inputs_embeds: Encoder input embeddings
@@ -347,12 +432,35 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             All others are to ensure compatability with HF but are not used.
         
         Returns:
-            Seq2SeqLMOutput: Contains loss, logits and encoder/decoder output
+            CustomLMOutput: Contains total_loss, transformers loss and alignment loss when aligning the encoder, logits and encoder/decoder output
         """
-        
+
+        generating = isinstance(encoder_outputs, dict)
         # Encode
         if not isinstance(encoder_outputs, dict):
-            encoder_outputs = self.encoder(inputs_embeds, attention_mask=attention_mask, )
+            encoder_outputs = self.encoder(inputs_embeds, attention_mask=attention_mask)
+
+        # average all the non padding tokens hidden_state
+        align_loss = 0
+        align_loss_lambda = 0
+        if self.align_network and not generating:
+            try:
+                align_loss_function = LOSS_FACTORY[self.config.align_config.loss_function]
+            except Exception as e:
+                raise ValueError(f"Loss function {self.config.align_config.loss_function} not supported for alignment!{e}")
+            if isinstance(attention_mask, torch.Tensor):
+                mask = attention_mask.unsqueeze(-1)
+            else:
+                hidden_state = encoder_outputs['last_hidden_state']
+                mask = torch.ones(hidden_state.size()[:-1], device=hidden_state.device).unsqueeze(-1)
+                
+            num_unmasked = mask.sum(dim=1)
+            align_input = (encoder_outputs['last_hidden_state'] * mask).sum(dim=1) / num_unmasked
+            pred = self.align_network(align_input)
+            target = encoder_align_target
+            align_loss = align_loss_function(pred , target)
+            align_loss_lambda = self.config.align_config.loss_lambda
+
 
         # Decode
         decoder_output = self.decoder(
@@ -369,13 +477,21 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             labels = labels.to(logits.device) # type: ignore
             loss_fct = nn.CrossEntropyLoss()
             masked_lm_loss = loss_fct(logits.view(-1, self.decoder_vocab_size), labels.view(-1)) # type: ignore
+            
+            total_loss = masked_lm_loss + align_loss_lambda * align_loss
+            loss_dict={
+                "model_only_loss" : masked_lm_loss,
+                "alignment_loss": align_loss  if self.align_network else None
+            }
         else:
-            masked_lm_loss = None
+            total_loss = None
+            loss_dict = None
 
-
-        return Seq2SeqLMOutput(
-            loss=masked_lm_loss,
+            
+        return CustomLMOutput(
+            loss=total_loss,
             logits=logits,
             decoder_hidden_states=decoder_output,
             encoder_hidden_states=encoder_outputs['last_hidden_state'],
+            loss_dict=loss_dict
         )

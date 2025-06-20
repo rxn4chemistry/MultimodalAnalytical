@@ -1,0 +1,8 @@
+unbalanced:
+  n_compounds: 2
+  compounds_ratio: [0.3, 0.7]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: False
