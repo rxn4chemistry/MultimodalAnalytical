@@ -1,4 +1,3 @@
-from collections import defaultdict
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -6,12 +5,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, IterableDataset
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from analytical_fm.data.preprocessors import PatchPreprocessor
-from analytical_fm.defaults import DEFAULT_SAMPLES
+from ..configuration import DEFAULT_SETTINGS
+from .data_utils import IterableDatasetWithLength
+from .preprocessors import PatchPreprocessor
 
 
 @dataclass
@@ -21,8 +21,9 @@ class MultiModalDataCollator:
     model_type: str
 
     dataset: InitVar[DatasetDict]
+    extra_columns: Optional[List[str]] = None
 
-    mixture: Optional[str] = None
+
     padding: bool = True
     max_source_length: Optional[Dict[str, int]] = None
     max_target_length: Optional[int] = None
@@ -30,6 +31,7 @@ class MultiModalDataCollator:
 
     input_modalities: List[str] = field(init=False)
     target_modality: str = field(init=False)
+    alignment_modality: List[str] = field(init=False)
 
     def __post_init__(self, dataset: DatasetDict):
         """
@@ -43,8 +45,15 @@ class MultiModalDataCollator:
         target_modality_list = [
             modality
             for modality, modality_config in self.data_config.items()
-            if modality_config["target"]
+            if modality_config["target"] and ("alignment" not in modality_config or not modality_config["alignment"])
         ]
+        alignment_modality_list = [
+            modality
+            for modality, modality_config in self.data_config.items()
+            if modality_config["target"] and "alignment" in modality_config and modality_config["alignment"]
+        ]
+        if len(alignment_modality_list) > 1:
+            raise ValueError("At most 1 target alignment modality can be specified.")
         if len(target_modality_list) != 1:
             raise ValueError("Only 1 target modality can be specified.")
 
@@ -52,6 +61,7 @@ class MultiModalDataCollator:
 
         self.input_modalities = input_modalities
         self.target_modality = target_modality
+        self.alignment_modality = alignment_modality_list
 
         # Compute max source length if not provided
         if self.max_source_length is None:
@@ -71,10 +81,15 @@ class MultiModalDataCollator:
     def compute_source_lengths(self, dataset: Dataset) -> Dict[str, int]:
         max_lengths = dict()
 
-        selected_sample = np.random.randint(
-            0, len(dataset), min(DEFAULT_SAMPLES, len(dataset))
-        )
-        sampled_dataset = dataset.select(selected_sample)
+        if isinstance(dataset, IterableDatasetWithLength):
+            num_samples = min(DEFAULT_SETTINGS.default_samples, dataset._length)
+            sampled_dataset = dataset.take(num_samples)
+            sampled_dataset = Dataset.from_generator(lambda: sampled_dataset.__iter__(), split=dataset.split)
+        else:
+            selected_sample = np.random.randint(
+                0, len(dataset), min(DEFAULT_SETTINGS.default_samples, len(dataset))
+            )
+            sampled_dataset = dataset.select(selected_sample)
 
         # Compute the max length of each modality
         for modality in self.input_modalities:
@@ -101,10 +116,15 @@ class MultiModalDataCollator:
 
         max_target_length = 0
 
-        selected_sample = np.random.randint(
-            0, len(dataset), min(DEFAULT_SAMPLES, len(dataset))
-        )
-        sampled_dataset = dataset.select(selected_sample)
+        if isinstance(dataset, IterableDatasetWithLength):
+            num_samples = min(DEFAULT_SETTINGS.default_samples, dataset._length)
+            sampled_dataset = dataset.take(num_samples)
+            sampled_dataset = Dataset.from_generator(lambda: sampled_dataset.__iter__(), split=dataset.split)
+        else:
+            selected_sample = np.random.randint(
+                0, len(dataset), min(DEFAULT_SETTINGS.default_samples, len(dataset))
+            )
+            sampled_dataset = dataset.select(selected_sample)
 
         for sample in sampled_dataset[self.target_modality]:
             tokenized_sample = self.preprocessors[self.target_modality](
@@ -115,57 +135,6 @@ class MultiModalDataCollator:
 
         return max_target_length + 5
     
-    def mixture_batch(self, batch_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        This function creates a batch for the mixtures for different `mixture`.
-        The variable `mixture` can be either single or mixture.
-
-        When
-        - `mixture = single`, each mixture in the batch is splitted into single compounds to predict.
-        - `mixture = multiple`, # finish this documentation.
-            
-        Default value is `single`.
-
-        Parameters
-        -------
-        
-        batch_dict : Dict[str, Any]
-            The input dict that has as key the modality and as value the samples.
- 
-
-        Returns
-        -------
-
-        dict
-            a dictionary with the same keys as the input dict, but with rearranged values in single or multiple input per modality.
-        """
-        batch_dict_new = defaultdict(list)
-
-        not_repeated = list()
-        batch_size = len(batch_dict[list(batch_dict.keys())[0]])
-
-        if self.mixture == "single": # this makes the batch_size n_compunds*batch_size, since it passes compunds one by one.
-            for modality in batch_dict.keys():
-                if not all(isinstance(el, str) for el in batch_dict[modality]): # this because the spectra is unique, while in the dataset smiles and molecular formula have multiple strings beaing a mixture.
-                    not_repeated.append(modality)
-
-                if modality not in not_repeated:
-                    for el in batch_dict[modality]:
-                        batch_dict_new[modality].extend(el.split(" "))
-                
-
-            n_compunds = max(len(value) for value in batch_dict_new.values()) // batch_size
-
-            for modality in not_repeated:
-                for el in batch_dict[modality]:
-                    batch_dict_new[modality].extend([el] * n_compunds) # repeat the elements (they should be array, this is for the spectra field) n_compunds times
-                
-        else:
-            raise ValueError("Invalid predict mode. Predict mode should be in ['single', 'multiple']")
-        
-        return batch_dict_new
-
-
     def __call__(
         self, batch: List[Dict[str, Any]], return_tensors=None
     ) -> Dict[str, Any]:
@@ -176,13 +145,21 @@ class MultiModalDataCollator:
             k: [batch[i][k] for i in range(len(batch))] for k, v in batch[0].items()
         }
 
-        if self.mixture:
-            batch_dict = self.mixture_batch(batch_dict)
 
         # Prepare Encoder and target
         input_dict, global_input_attention_mask = self.prepare_encoder_input(
             batch_dict, return_tensors
         )
+
+
+        alignment_input = None
+        if len(self.alignment_modality) == 1:
+            alignment_input = torch.tensor(np.array(batch_dict[self.alignment_modality[0]]))
+            if alignment_input.shape[1] < 1800:
+                alignment_input = torch.nn.functional.pad(alignment_input, (0, 1800 - alignment_input.shape[1]), "constant", 0)
+
+            if self.data_config[self.alignment_modality[0]]["type"] == "1D_patches" and self.preprocessors[self.alignment_modality[0]].interplation_merck:
+                alignment_input = torch.tensor(self.preprocessors[self.alignment_modality[0]].interpolation_merck(alignment_input), dtype=torch.float32)
         target_tensor = self.prepare_target(batch_dict, return_tensors)
 
         # Prepare batches for BART or encoder only model
@@ -215,7 +192,7 @@ class MultiModalDataCollator:
             else:
                 target = batch_dict[self.target_modality]
 
-            return {
+            return_dict =  {
                 "encoder_input": input_dict,
                 "encoder_pad_mask": global_input_attention_mask,
                 "decoder_input": decoder_input,
@@ -224,6 +201,15 @@ class MultiModalDataCollator:
                 "target_mask": decoder_pad_mask.clone()[1:, :],
                 "target_smiles": target,
             }
+            
+            if alignment_input is not None:
+                return_dict["encoder_alignment_input"] = alignment_input
+
+            if self.extra_columns and self.extra_columns != [None]:
+                for col in self.extra_columns:
+                    if col not in return_dict:
+                        return_dict[col] = batch_dict[col]
+            return return_dict
 
         elif self.model_type == "encoder":
             return {
@@ -420,8 +406,8 @@ class MultiModalDataModule(pl.LightningDataModule):
         batch_size: int = 128,
         max_source_length: Optional[int] = None,
         max_target_length: Optional[int] = None,
-        num_workers: int = 7,
-        mixture: Optional[str] = None,
+        extra_columns: Optional[List[str]] = None,
+        num_workers: int = 8,
     ):
         super().__init__()
 
@@ -433,7 +419,7 @@ class MultiModalDataModule(pl.LightningDataModule):
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.num_workers = num_workers
-        self.mixture = mixture
+        self.extra_columns = extra_columns
 
         self.collator = self.get_multimodal_data_collator()
 
@@ -445,11 +431,12 @@ class MultiModalDataModule(pl.LightningDataModule):
         pass
 
     def train_dataloader(self) -> DataLoader:
+
         train_loader = DataLoader(
             self.dataset["train"],
-            shuffle=True,
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle = True if not isinstance(self.dataset["train"], (IterableDataset, IterableDatasetWithLength)) else None,
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
@@ -459,11 +446,23 @@ class MultiModalDataModule(pl.LightningDataModule):
     def val_dataloader(
         self,
     ) -> DataLoader:
+        
+        if isinstance(self.dataset["validation"], IterableDatasetWithLength):
+            selected_validation_set = self.dataset["validation"].take(min(10000, self.dataset["validation"]._length))
+            selected_validation_set = Dataset.from_generator(lambda: selected_validation_set.__iter__(), split="validation")
+        else:
+            selected_sample = np.random.choice(
+                len(self.dataset["validation"]),
+                min(10000, len(self.dataset["validation"])),
+                replace=False
+            )
+            selected_validation_set = self.dataset["validation"].select(selected_sample)
+        
         val_loader = DataLoader(
-            self.dataset["validation"],
-            shuffle=False,
+            selected_validation_set,
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle=False if not isinstance(self.dataset["validation"], (IterableDataset, IterableDatasetWithLength)) else None,
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
@@ -474,23 +473,31 @@ class MultiModalDataModule(pl.LightningDataModule):
         self,
         test_idx: Optional[Path] = None,
     ) -> DataLoader:
-        
-        if test_idx is None:
-            #Sample random 10k samples
-            selected_sample = np.random.randint(
-                0, len(self.dataset["test"]), min(10000, len(self.dataset["test"]))
-            )
+
+
+        if isinstance(self.dataset["test"], IterableDatasetWithLength):
+            selected_test_set = self.dataset["test"].take(min(10000, self.dataset["test"]._length))
+            selected_test_set = Dataset.from_generator(lambda: selected_test_set.__iter__(), split="test")
         else:
-            with test_idx.open("rb") as f:
-                selected_sample = np.load(f)
+            if test_idx is None:
+                #Sample random 10k samples
+                selected_sample = np.random.choice(
+                    len(self.dataset["test"]),
+                    min(10000, len(self.dataset["test"])),
+                    replace=False
+                )
+            else:
+                with test_idx.open("rb") as f:
+                    selected_sample = np.load(f)
+            
+            selected_test_set = self.dataset["test"].select(selected_sample)
         
-        selected_test_set = self.dataset["test"].select(selected_sample)
 
         test_loader = DataLoader(
             selected_test_set,
-            shuffle=False,
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle=False if not isinstance(self.dataset["test"], (IterableDataset, IterableDatasetWithLength)) else None,
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
@@ -503,6 +510,6 @@ class MultiModalDataModule(pl.LightningDataModule):
             data_config=self.data_config,
             dataset=self.dataset,
             model_type=self.model_type,
-            mixture=self.mixture,
+            extra_columns=self.extra_columns
         )
         return data_collator

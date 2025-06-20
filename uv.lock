@@ -252,6 +252,118 @@ requires-dist = [
 ]
 
 [[package]]
+name = "analytical-fm"
+version = "0.0.1"
+source = { editable = "." }
+dependencies = [
+    { name = "click" },
+    { name = "datasets" },
+    { name = "hydra-core" },
+    { name = "importlib-resources" },
+    { name = "loguru" },
+    { name = "numpy" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "pybaselines" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pytorch-lightning" },
+    { name = "rdkit" },
+    { name = "regex" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tensorboard" },
+    { name = "tokenizers" },
+    { name = "torch" },
+    { name = "torchmetrics" },
+    { name = "tqdm" },
+    { name = "transformers" },
+]
+
+[package.optional-dependencies]
+data-analysis = [
+    { name = "click" },
+    { name = "datasets" },
+    { name = "ibm-generative-ai" },
+    { name = "loguru" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+]
+dev = [
+    { name = "isort" },
+    { name = "jupyter" },
+    { name = "licenseheaders" },
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "types-setuptools" },
+]
+modeling = [
+    { name = "accelerate" },
+    { name = "click" },
+    { name = "datasets" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", marker = "extra == 'modeling'", specifier = ">=0.33.0" },
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "click", marker = "extra == 'data-analysis'", specifier = ">=8.1.7" },
+    { name = "click", marker = "extra == 'modeling'", specifier = ">=8.1.7" },
+    { name = "datasets", specifier = ">=2.14.4" },
+    { name = "datasets", marker = "extra == 'data-analysis'", specifier = ">=2.19.2" },
+    { name = "datasets", marker = "extra == 'modeling'", specifier = ">=2.19.2" },
+    { name = "hydra-core", specifier = ">=1.3.2" },
+    { name = "ibm-generative-ai", marker = "extra == 'data-analysis'", specifier = ">=3.0.0" },
+    { name = "importlib-resources", specifier = ">=6.5.2" },
+    { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.2" },
+    { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "licenseheaders", marker = "extra == 'dev'", specifier = ">=0.8.8" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "loguru", marker = "extra == 'data-analysis'", specifier = ">=0.7.2" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "numpy", specifier = ">=1.24.4" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pandas", specifier = ">=1.5.3" },
+    { name = "pandas", marker = "extra == 'data-analysis'" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.1" },
+    { name = "pybaselines", specifier = ">=1.2.0" },
+    { name = "pydantic", specifier = ">=2.6.3" },
+    { name = "pydantic", marker = "extra == 'data-analysis'", specifier = ">=2.6.3" },
+    { name = "pydantic", marker = "extra == 'modeling'", specifier = ">=2.6.3" },
+    { name = "pydantic-settings", specifier = ">=2.2.1" },
+    { name = "pydantic-settings", marker = "extra == 'data-analysis'", specifier = ">=2.2.1" },
+    { name = "pydantic-settings", marker = "extra == 'modeling'", specifier = ">=2.2.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.2.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=2.8.1" },
+    { name = "python-dotenv", marker = "extra == 'data-analysis'" },
+    { name = "pytorch-lightning", specifier = ">=2.1.0" },
+    { name = "rdkit", specifier = ">=2024.9" },
+    { name = "regex", specifier = ">=2023.8.8" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7.4" },
+    { name = "scikit-learn", specifier = ">=1.3.2" },
+    { name = "scipy", specifier = ">=1.10.1" },
+    { name = "tensorboard", specifier = ">=2.14.0" },
+    { name = "tokenizers", specifier = ">=0.13.3" },
+    { name = "torch", specifier = ">=2.4.0" },
+    { name = "torch", marker = "extra == 'modeling'", specifier = ">=2.2.2" },
+    { name = "torchmetrics", specifier = ">=1.2.0" },
+    { name = "tqdm", specifier = ">=4.25.0" },
+    { name = "tqdm", specifier = ">=4.66.1" },
+    { name = "transformers", specifier = ">=4.32.1,<4.49.0" },
+    { name = "transformers", marker = "extra == 'modeling'", specifier = ">=4.41.2" },
+    { name = "types-setuptools", marker = "extra == 'dev'", specifier = ">=57.4.14" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple/" }
@@ -748,6 +860,15 @@ source = { registry = "https://pypi.org/simple/" }
 sdist = { url = "https://files.pythonhosted.org/packages/0d/dd/1bec4c5ddb504ca60fc29472f3d27e8d4da1257a854e1d96742f15c1d02d/distlib-0.3.9.tar.gz", hash = "sha256:a60f20dea646b8a33f3e7772f74dc0b2d0772d2837ee1342a00645c81edf9403", size = 613923 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/91/a1/cf2472db20f7ce4a6be1253a81cfdf85ad9c7885ffbed7047fb72c24cf87/distlib-0.3.9-py2.py3-none-any.whl", hash = "sha256:47f8c22fd27c27e25a65601af709b38e4f0a45ea4fc2e710f65755fa8caaaf87", size = 468973 },
+]
+
+[[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple/" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059 },
 ]
 
 [[package]]
@@ -1647,7 +1768,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c4/79/bda47f7dd7c3c55770478d6d02c9960c430b0cf1773b72366ff89126ea31/mistune-3.1.3.tar.gz", hash = "sha256:a7035c21782b2becb6be62f8f25d3df81ccb4d6fa477a6525b15af06539f02a0", size = 94347 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/01/4d/23c4e4f09da849e127e9f123241946c23c1e30f45a88366879e064211815/mistune-3.1.3-py3-none-any.whl", hash = "sha256:1a32314113cff28aa6432e99e522677c8587fd83e3d51c29b82a52409c842bd9", size = 53410 },
-]
 
 [[package]]
 name = "mpmath"
@@ -2226,6 +2346,18 @@ wheels = [
 ]
 
 [[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple/" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910 },
+]
+
+[[package]]
 name = "overrides"
 version = "7.7.0"
 source = { registry = "https://pypi.org/simple/" }
@@ -2650,6 +2782,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/cb/65fa110b483339add6a9bc7b6373614166b14e20375d4daa73483755f830/pyarrow-20.0.0-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:f3b117b922af5e4c6b9a9115825726cac7d8b1421c37c2b5e24fbacc8930612c", size = 42839441 },
     { url = "https://files.pythonhosted.org/packages/98/7b/f30b1954589243207d7a0fbc9997401044bf9a033eec78f6cb50da3f304a/pyarrow-20.0.0-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:e724a3fd23ae5b9c010e7be857f4405ed5e679db5c93e66204db1a69f733936a", size = 44503279 },
     { url = "https://files.pythonhosted.org/packages/37/40/ad395740cd641869a13bcf60851296c89624662575621968dcfafabaa7f6/pyarrow-20.0.0-cp313-cp313t-win_amd64.whl", hash = "sha256:82f1ee5133bd8f49d31be1299dc07f585136679666b502540db854968576faf9", size = 25944982 },
+]
+
+[[package]]
+name = "pybaselines"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple/" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/24/9f639f7906a49bcdf3f2448ac8f450dd5d910b008d58f65e8af8a46aa42d/pybaselines-1.2.0.tar.gz", hash = "sha256:60b191fc3f9088ccd763b51cac16a990fa8198da7392c15d586453d40b837d8d", size = 334112 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/37/ddafb2b6c07edbfe4d91c1236a17055de7a42717ac56ed2fb000afa405fa/pybaselines-1.2.0-py3-none-any.whl", hash = "sha256:c485354be262ed3f5472d49b13240ce273aeb7187b08e914649e7019e22104fa", size = 209986 },
 ]
 
 [[package]]

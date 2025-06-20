@@ -26,6 +26,14 @@ cv_split: 0
 guided_generation: False
 max_position_embeddings: 1024
 
-align_config: null
+align_config:
+  align_network: convolutional
+  hidden_dimension: 256
+  conv_channels: 512
+  kernel_size: 5
+  output_dimension: 1800
+  loss_lambda: 50
+  loss_function: mae
+
 n_beams: 10
 rejection_sampling: False

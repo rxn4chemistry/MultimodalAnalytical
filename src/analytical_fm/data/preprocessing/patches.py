@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -15,12 +15,12 @@ logger.addHandler(logging.NullHandler())
 class PatchPreprocessor:
     mean: float = field(init=False)
     std: float = field(init=False)
-    mean_deriv: torch.Tensor = field(init=False)
-    std_deriv: torch.Tensor = field(init=False)
+    mean_deriv: Optional[torch.Tensor] = field(default=None, init=False)
+    std_deriv: Optional[torch.Tensor] = field(default=None, init=False)
 
     patch_size: int = field(init=True)
     masking: bool = field(init=True)
-    interpolation: bool = field(init=True)
+    interplation_merck: bool = field(init=True)
     overlap: int = field(init=True, default=1)
     derivative: bool = field(init=True, default=False)
 
@@ -45,8 +45,8 @@ class PatchPreprocessor:
             self.mean_deriv = gradient.mean()
             self.std_deriv = gradient.std()
 
-    def interpolate_spec(self, spectra: List[float]) -> List[float]:
-        old_x = np.arange(400, 3982, 2)
+    def interpolation_merck(self, spectra: List[float]) -> List[float]:
+        old_x = np.arange(400, 4000, 2)
         new_x = np.arange(650, 3900, 2)
         interp = interpolate.interp1d(old_x, spectra)
         return interp(new_x)
@@ -60,8 +60,14 @@ class PatchPreprocessor:
             Tensor: (batch_size, spectra_length/patch_size, patch_size)
         """
 
-        if self.interpolation:
-            spectra = [self.interpolate_spec(spectrum) for spectrum in spectra]
+        spec_size_mask = [len(spectrum) if spectrum is not None else -1 for spectrum in spectra]
+        max_spec_size = max(spec_size_mask) if max(spec_size_mask) != -1 else 500
+        for i in range(len(spectra)):
+            if spectra[i] is None:
+                spectra[i] = [0] * max_spec_size
+
+        if self.interplation_merck:
+            spectra = [self.interpolation_merck(spectrum) for spectrum in spectra]
 
         # Concert to tensor
         spectra_tensor = torch.Tensor(spectra)
@@ -93,8 +99,8 @@ class PatchPreprocessor:
             summed_patched_spectrum = patched_spectrum.sum(-1)
             attention_mask = summed_patched_spectrum == 0
         else:
-            attention_mask = torch.full(
-                (patched_spectrum.shape[0], patched_spectrum.shape[1]), False
+            attention_mask = torch.stack(
+                [torch.full((patched_spectrum.shape[1],), (spec_size_mask[i] == -1)) for i in range(patched_spectrum.shape[0])]
             )
 
         return patched_spectrum, attention_mask
