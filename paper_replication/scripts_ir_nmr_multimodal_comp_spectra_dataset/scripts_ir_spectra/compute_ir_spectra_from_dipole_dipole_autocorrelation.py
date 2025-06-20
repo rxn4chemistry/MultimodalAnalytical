@@ -1,14 +1,16 @@
 #!/usr/bin/env python
+import sys
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import sys
 from scipy import fftpack, signal
+
 
 def gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs) -> None:
     # Inputs
     # T = 300.0  # K
-    output_autocorrelation_file = os.path.join(save_dir, "autocorr_orig_"+filedipole+".txt")
+    output_autocorrelation_file = Path(save_dir) / "autocorr_orig_"+filedipole+".txt"
 
     # Constants
     # boltz = 1.38064852e-23  # m^2 kg s^-2 K^-1
@@ -68,10 +70,10 @@ def gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs) -> None
     return np.column_stack((time[: len(autocorr)], autocorr))
 
 
-def gen_spectrum_me2(filedipole, save_path, autocorr_xy, save_dir, md_timestep_in_fs) -> None:
+def gen_spectrum_me2(save_path, autocorr_xy, md_timestep_in_fs) -> None:
     # Inputs
     # autocorrelation_option = 2  # 1 to calculate it, 2 to load a pre-calculated one
-    T = 300.0  # K
+    temp = 300.0  # K
 
     # Constants
     boltz = 1.38064852e-23  # m^2 kg s^-2 K^-1
@@ -100,10 +102,10 @@ def gen_spectrum_me2(filedipole, save_path, autocorr_xy, save_dir, md_timestep_i
 
     # Calculate spectra
     field_description = lineshape_frequencies * (
-        1.0 - np.exp(-reduced_planck * lineshape_frequencies / (boltz * T))
+        1.0 - np.exp(-reduced_planck * lineshape_frequencies / (boltz * temp))
     )
     quantum_correction = lineshape_frequencies / (
-        1.0 - np.exp(-reduced_planck * lineshape_frequencies / (boltz * T))
+        1.0 - np.exp(-reduced_planck * lineshape_frequencies / (boltz * temp))
     )
     # quantum correction per doi.org/10.1021/jp034788u. Other options are possible, see doi.org/10.1063/1.441739 and doi.org/10.1080/00268978500102801.
     spectra = lineshape * field_description
@@ -129,17 +131,17 @@ def gen_spectrum_me2(filedipole, save_path, autocorr_xy, save_dir, md_timestep_i
 
 
 # Blackman window function
-def blackman_window(N):
-    n = np.arange(N)
-    return 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) + 0.08 * np.cos(4 * np.pi * n / (N - 1))
+def blackman_window(nn):
+    n = np.arange(nn)
+    return 0.42 - 0.5 * np.cos(2 * np.pi * n / (nn - 1)) + 0.08 * np.cos(4 * np.pi * n / (nn - 1))
 
 
 # Function to apply damping to the last part of the signal
 def damp_last_part(x, y, damping_fraction=0.2):
-    N = len(x)
-    window = blackman_window(N)
-    damped_window = np.ones(N)
-    damped_window[int((1 - damping_fraction) * N):] = window[int((1 - damping_fraction) * N):]
+    n = len(x)
+    window = blackman_window(n)
+    damped_window = np.ones(n)
+    damped_window[int((1 - damping_fraction) * n):] = window[int((1 - damping_fraction) * n):]
     y_damped = y * damped_window
     # return y_damped
     return np.column_stack((x, y_damped))
@@ -151,9 +153,9 @@ def plot_auto(filedipole, autocorr, autocorr_damp, save_dir):
     y_damped_last_part = autocorr_damp[:,1]
     header_ = "# Time(fs) Autocorrelation(e*Ang)"
 
-    output_filename = os.path.join(save_dir, "autocorr_damp_"+filedipole+".txt")
+    output_filename = Path(save_dir) / "autocorr_damp_"+filedipole+".txt"
     np.savetxt(output_filename, np.column_stack((x, y_damped_last_part)), header=header_, comments='', delimiter=' ')
-    plot_filename = os.path.join(save_dir, "plot_autocorr_"+filedipole+".png")
+    plot_filename = Path(save_dir) / "plot_autocorr_"+filedipole+".png"
     
     # Plotting the original vs. damped signal
     plt.figure(figsize=(10, 6))
@@ -181,24 +183,24 @@ if __name__ == "__main__":
         sys.exit(1)
 
     filedipole = sys.argv[1]
-    save_dir = os.path.dirname(filedipole)
+    save_dir = Path(filedipole)
     md_timestep_in_fs = float(sys.argv[2])
 
     dipole_np = np.load(filedipole)
     n_points = dipole_np.shape[0]
-    filedipole = os.path.basename(filedipole)
-    filedipole = filedipole.replace(".npy", "")
+    filedipole = Path(filedipole)
+    filedipole = Path(filedipole.replace(".npy", ""))
 
     print("reading from", filedipole, "which contains", n_points, "lines and md_timestep_in_fs = ", md_timestep_in_fs)
 
-    output_autocorrelation_file = os.path.join(save_dir, "autocorr_orig_"+filedipole+".txt")
-    save_path = os.path.join(save_dir, "IR-data_"+filedipole+"_auto_damped.csv")
+    output_autocorrelation_file = Path(save_dir) / "autocorr_orig_"+filedipole+".txt"
+    save_path = Path(save_dir) / "IR-data_"+filedipole+"_auto_damped.csv"
     csv_path = save_path
     print("save_path:", save_path)
-    output_filename = os.path.join(save_dir, "autocorr_damp_"+filedipole+".txt")
-    plot_filename = os.path.join(save_dir, "plot_autocorr_"+filedipole+".png")
+    output_filename = Path(save_dir) / "autocorr_damp_"+filedipole+".txt"
+    plot_filename = Path(save_dir) / "plot_autocorr_"+filedipole+".png"
     autocorr = gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs)
     autocorr_damp = damp_last_part(autocorr[:,0], autocorr[:,1], damping_fraction=0.5)
-    gen_spectrum_me2(filedipole, csv_path, autocorr_damp, save_dir, md_timestep_in_fs)
+    gen_spectrum_me2(csv_path, autocorr_damp, md_timestep_in_fs)
     plot_auto(filedipole, autocorr, autocorr_damp, save_dir)
 
