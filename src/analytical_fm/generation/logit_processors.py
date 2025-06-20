@@ -112,7 +112,7 @@ class GuidedFormulaProcessor(LogitsProcessor):
                 )
             except:  # noqa E722
                 decoded_formula.append("")
-        decoded_formula = np.stack(
+        decoded_formula = np.stack( # type: ignore
             [self.make_formula_encoding(formula) for formula in decoded_formula], axis=0
         )
 
