@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -26,16 +27,17 @@ def plot_spectra(record):
 
 
 def load_df(path_to_parquet_folder):
+    base_path = Path(path_to_parquet_folder)
     files = [
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk001_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk002_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk003_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk004_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk005_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk006_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk007_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk008_of_009.parquet"),
-        os.path.join(path_to_parquet_folder, "./IR_data_chunk009_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk001_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk002_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk003_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk004_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk005_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk006_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk007_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk008_of_009.parquet"),
+        os.path.join(base_path / "./IR_data_chunk009_of_009.parquet"),
     ]
     df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     return df
