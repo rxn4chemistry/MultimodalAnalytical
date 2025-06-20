@@ -50,8 +50,8 @@ def main(config: DictConfig):
     model_config: Dict[str, Any] = OmegaConf.to_container(config["model"].copy(), resolve=True) # type: ignore
 
 
-    data_config, dataset = build_dataset_multimodal( # type: ignore
-        data_config,
+    data_config, dataset = build_dataset_multimodal(
+        data_config, # type: ignore
         data_path=config["data_path"],
         cv_split=config["cv_split"],
         splitting=config["splitting"],
