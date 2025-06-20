@@ -116,6 +116,9 @@ module = [
     "tqdm.*",
     "sklearn.*",
     "regex.*",
+    "rdkit.*",
+    "pytorch_lightning.*",
+    "loguru.*",
 ]
 ignore_missing_imports = true
 

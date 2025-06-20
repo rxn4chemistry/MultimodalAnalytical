@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Optional
 
 import click
 import pandas as pd
@@ -7,7 +8,7 @@ from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 
 
-def canonicalise_smiles(smiles: str) -> str:
+def canonicalise_smiles(smiles: str) -> Optional[str]:
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
