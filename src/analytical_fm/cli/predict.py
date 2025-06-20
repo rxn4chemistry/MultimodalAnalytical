@@ -46,7 +46,7 @@ def main(config: DictConfig):
     print(data_config)
     data_config = OmegaConf.to_container(data_config, resolve=True)
 
-    data_config, dataset = build_dataset_multimodal(
+    data_config, dataset = build_dataset_multimodal( # type: ignore
         data_config,
         data_path=config["data_path"],
         cv_split=config["cv_split"],
