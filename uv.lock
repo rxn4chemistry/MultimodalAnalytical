@@ -155,113 +155,13 @@ name = "analytical-fm"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "datasets" },
     { name = "hydra-core" },
     { name = "importlib-resources" },
+    { name = "loguru" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
-    { name = "pandas" },
-    { name = "pytorch-lightning" },
-    { name = "rdkit" },
-    { name = "regex" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "tensorboard" },
-    { name = "tokenizers" },
-    { name = "torch" },
-    { name = "torchmetrics" },
-    { name = "tqdm" },
-    { name = "transformers" },
-]
-
-[package.optional-dependencies]
-data-analysis = [
-    { name = "click" },
-    { name = "datasets" },
-    { name = "ibm-generative-ai" },
-    { name = "loguru" },
-    { name = "pandas" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-]
-dev = [
-    { name = "isort" },
-    { name = "jupyter" },
-    { name = "licenseheaders" },
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "types-setuptools" },
-]
-modeling = [
-    { name = "accelerate" },
-    { name = "click" },
-    { name = "datasets" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "torch" },
-    { name = "transformers" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate", marker = "extra == 'modeling'", specifier = ">=0.33.0" },
-    { name = "click", marker = "extra == 'data-analysis'", specifier = ">=8.1.7" },
-    { name = "click", marker = "extra == 'modeling'", specifier = ">=8.1.7" },
-    { name = "datasets", specifier = ">=2.14.4" },
-    { name = "datasets", marker = "extra == 'data-analysis'", specifier = ">=2.19.2" },
-    { name = "datasets", marker = "extra == 'modeling'", specifier = ">=2.19.2" },
-    { name = "hydra-core", specifier = ">=1.3.2" },
-    { name = "ibm-generative-ai", marker = "extra == 'data-analysis'", specifier = ">=3.0.0" },
-    { name = "importlib-resources", specifier = ">=6.5.2" },
-    { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.2" },
-    { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "licenseheaders", marker = "extra == 'dev'", specifier = ">=0.8.8" },
-    { name = "loguru", marker = "extra == 'data-analysis'", specifier = ">=0.7.2" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "numpy", specifier = ">=1.24.4" },
-    { name = "pandas", specifier = ">=1.5.3" },
-    { name = "pandas", marker = "extra == 'data-analysis'" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.1" },
-    { name = "pydantic", marker = "extra == 'data-analysis'", specifier = ">=2.6.3" },
-    { name = "pydantic", marker = "extra == 'modeling'", specifier = ">=2.6.3" },
-    { name = "pydantic-settings", marker = "extra == 'data-analysis'", specifier = ">=2.2.1" },
-    { name = "pydantic-settings", marker = "extra == 'modeling'", specifier = ">=2.2.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.2.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=2.8.1" },
-    { name = "python-dotenv", marker = "extra == 'data-analysis'" },
-    { name = "pytorch-lightning", specifier = ">=2.1.0" },
-    { name = "rdkit", specifier = ">=2024.9" },
-    { name = "regex", specifier = ">=2023.8.8" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7.4" },
-    { name = "scikit-learn", specifier = ">=1.3.2" },
-    { name = "scipy", specifier = ">=1.10.1" },
-    { name = "tensorboard", specifier = ">=2.14.0" },
-    { name = "tokenizers", specifier = ">=0.13.3" },
-    { name = "torch", specifier = ">=2.4.0" },
-    { name = "torch", marker = "extra == 'modeling'", specifier = ">=2.2.2" },
-    { name = "torchmetrics", specifier = ">=1.2.0" },
-    { name = "tqdm", specifier = ">=4.25.0" },
-    { name = "tqdm", specifier = ">=4.66.1" },
-    { name = "transformers", specifier = ">=4.32.1" },
-    { name = "transformers", marker = "extra == 'modeling'", specifier = ">=4.41.2" },
-    { name = "types-setuptools", marker = "extra == 'dev'", specifier = ">=57.4.14" },
-]
-
-[[package]]
-name = "analytical-fm"
-version = "0.0.1"
-source = { editable = "." }
-dependencies = [
-    { name = "click" },
-    { name = "datasets" },
-    { name = "hydra-core" },
-    { name = "importlib-resources" },
-    { name = "loguru" },
-    { name = "numpy" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pybaselines" },
@@ -1768,6 +1668,7 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c4/79/bda47f7dd7c3c55770478d6d02c9960c430b0cf1773b72366ff89126ea31/mistune-3.1.3.tar.gz", hash = "sha256:a7035c21782b2becb6be62f8f25d3df81ccb4d6fa477a6525b15af06539f02a0", size = 94347 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/01/4d/23c4e4f09da849e127e9f123241946c23c1e30f45a88366879e064211815/mistune-3.1.3-py3-none-any.whl", hash = "sha256:1a32314113cff28aa6432e99e522677c8587fd83e3d51c29b82a52409c842bd9", size = 53410 },
+]
 
 [[package]]
 name = "mpmath"
@@ -2789,7 +2690,8 @@ name = "pybaselines"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple/" }
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
     { name = "scipy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f3/24/9f639f7906a49bcdf3f2448ac8f450dd5d910b008d58f65e8af8a46aa42d/pybaselines-1.2.0.tar.gz", hash = "sha256:60b191fc3f9088ccd763b51cac16a990fa8198da7392c15d586453d40b837d8d", size = 334112 }
@@ -3861,7 +3763,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.52.4"
+version = "4.48.3"
 source = { registry = "https://pypi.org/simple/" }
 dependencies = [
     { name = "filelock" },
@@ -3876,9 +3778,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/a9/275037087f9d846580b02f2d7cae0e0a6955d46f84583d0151d6227bd416/transformers-4.52.4.tar.gz", hash = "sha256:aff3764441c1adc192a08dba49740d3cbbcb72d850586075aed6bd89b98203e6", size = 8945376 }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/82/cebeb7af5e64440f1638f18c4ed0f89156d0eeaa6290d98da8ca93ac3872/transformers-4.48.3.tar.gz", hash = "sha256:a5e8f1e9a6430aa78215836be70cecd3f872d99eeda300f41ad6cc841724afdb", size = 8373458 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/f2/25b27b396af03d5b64e61976b14f7209e2939e9e806c10749b6d277c273e/transformers-4.52.4-py3-none-any.whl", hash = "sha256:203f5c19416d5877e36e88633943761719538a25d9775977a24fe77a1e5adfc7", size = 10460375 },
+    { url = "https://files.pythonhosted.org/packages/b6/1a/efeecb8d83705f2f4beac98d46f2148c95ecd7babfb31b5c0f1e7017e83d/transformers-4.48.3-py3-none-any.whl", hash = "sha256:78697f990f5ef350c23b46bf86d5081ce96b49479ab180b2de7687267de8fd36", size = 9669412 },
 ]
 
 [[package]]
