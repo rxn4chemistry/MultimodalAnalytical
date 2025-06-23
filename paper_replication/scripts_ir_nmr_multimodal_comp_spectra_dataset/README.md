@@ -158,6 +158,14 @@ Please refer to the README.md located in the same folder for more information.
 
 -----
 
+## 4. Script / Notebook to generate Figures 9 to visualize NMR data and optionally compare our NMR with reference
+
+This section introduces utility script located in the `scripts_nmr_fig_9/` folder, which are useful for preparing Figure9.
+Please refer to the README.md located in the same folder for more information.
+
+
+-----
+
 ## License
 
 This project is licensed under the MIT License. 
