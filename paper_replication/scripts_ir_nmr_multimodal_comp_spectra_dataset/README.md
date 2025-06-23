@@ -9,7 +9,7 @@ This repository contains the necessary scripts and documentation to reproduce th
 [**IR–NMR Multimodal Computational Spectra Dataset for 177K Patent-Extracted Organic Molecules**](https://chemrxiv.org/engage/chemrxiv/article-details/684f1f86c1cb1ecda0230ceb)
 
 The full dataset, an integral part of this work, is publicly available on Zenodo under the Community Data License Agreement Permissive 2.0:
-[https://doi.org/10.5281/zenodo.15669242](https://doi.org/10.5281/zenodo.15669242)
+[https://doi.org/10.5281/zenodo.15669242](https://doi.org/10.5281/zenodo.15669241)
 
 ---
 
@@ -76,7 +76,7 @@ The script will output the autocorrelation data as `.txt` and a `.png` plot, and
 
 -----
 
-## 2\. Preprocessing Scripts for First-Principle Simulations
+## 2. Preprocessing Scripts for First-Principle Simulations
 
 This section introduces utility scripts located in the `scripts/` folder, which are useful for preparing input files for first-principle simulations (e.g., CPMD). Refer to `examples/example1` and `examples/example2` for practical demonstrations.
 
@@ -147,6 +147,22 @@ To create input files using GTH Pseudopotentials for CPMD from an XYZ file:
 ```bash
 python scripts/make_input_cpmd_from_xyz.py --filexyz conf_99999.xyz --do_geop yes
 ```
+
+-----
+
+## 3. Script to generate Figures 6 and 7
+
+This section introduces utility scripts located in the `scripts_dipole_true_pred_error_fig6_and_fig7/` folder, which are useful for preparing Figures 6 and 7.
+Please refer to the README.md located in the same folder for more information.
+
+
+-----
+
+## 4. Script / Notebook to generate Figures 9 to visualize NMR data and optionally compare our NMR with reference
+
+This section introduces utility script located in the `scripts_nmr_fig_9/` folder, which are useful for preparing Figure9.
+Please refer to the README.md located in the same folder for more information.
+
 
 -----
 
