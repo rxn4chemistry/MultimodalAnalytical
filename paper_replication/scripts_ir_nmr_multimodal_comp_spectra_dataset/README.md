@@ -76,7 +76,7 @@ The script will output the autocorrelation data as `.txt` and a `.png` plot, and
 
 -----
 
-## 2\. Preprocessing Scripts for First-Principle Simulations
+## 2. Preprocessing Scripts for First-Principle Simulations
 
 This section introduces utility scripts located in the `scripts/` folder, which are useful for preparing input files for first-principle simulations (e.g., CPMD). Refer to `examples/example1` and `examples/example2` for practical demonstrations.
 
@@ -147,6 +147,14 @@ To create input files using GTH Pseudopotentials for CPMD from an XYZ file:
 ```bash
 python scripts/make_input_cpmd_from_xyz.py --filexyz conf_99999.xyz --do_geop yes
 ```
+
+-----
+
+## 3. Script to generate Figures 6 and 7
+
+This section introduces utility scripts located in the `scripts_dipole_true_pred_error_fig6_and_fig7/` folder, which are useful for preparing Figures 6 and 7.
+Please refer to the README.md located in the same folder for more information.
+
 
 -----
 
