@@ -9,7 +9,7 @@ This repository contains the necessary scripts and documentation to reproduce th
 [**IR–NMR Multimodal Computational Spectra Dataset for 177K Patent-Extracted Organic Molecules**](https://chemrxiv.org/engage/chemrxiv/article-details/684f1f86c1cb1ecda0230ceb)
 
 The full dataset, an integral part of this work, is publicly available on Zenodo under the Community Data License Agreement Permissive 2.0:
-[https://doi.org/10.5281/zenodo.15669242](https://doi.org/10.5281/zenodo.15669242)
+[https://doi.org/10.5281/zenodo.15669242](https://doi.org/10.5281/zenodo.15669241)
 
 ---
 
