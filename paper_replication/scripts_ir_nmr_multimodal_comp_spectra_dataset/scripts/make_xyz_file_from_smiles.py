@@ -53,7 +53,7 @@ def parse_arguments():
         '--smiles',
         type=str,
         help=(
-            'file_name of the list of smiles in text format, one smiles for each line',
+            'file_name of the list of smiles in text format, one smiles for each line'
         )
     )
     return parser.parse_args()
