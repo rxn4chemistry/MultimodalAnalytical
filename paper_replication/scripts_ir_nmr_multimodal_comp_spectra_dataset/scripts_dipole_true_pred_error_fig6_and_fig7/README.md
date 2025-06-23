@@ -1,6 +1,3 @@
-Sure! Here's your corrected and Markdown-formatted version, preserving your structure and information:
-
-````markdown
 # Comparison of Predicted and Ground Truth Dipole Moments for Unseen Data
 
 The following document contains the steps to reproduce the results in Figure 6 and Figure 7 of [IR–NMR Multimodal Computational Spectra Dataset for 177K Patent-Extracted Organic Molecules](https://chemrxiv.org/engage/chemrxiv/article-details/684f1f86c1cb1ecda0230ceb).  
@@ -16,7 +13,7 @@ These folders contain the predicted and ground truth dipole moments for unseen d
 
 Figure 7 ([link](https://chemrxiv.org/engage/chemrxiv/article-details/684f1f86c1cb1ecda0230ceb)) shows that the molecules with IDs `22447` and `11726` are solely responsible for the deviation observed in Figure 6. The structure of these two molecules is also illustrated.
 
-Download the `DC4` and `DD6` folders and run the following scripts.
+Download the `DC4` and `DD6` folders, the following `list*txt` files and run the following scripts.
 
 The lists contain the IDs of the molecules:
 - `list_DC4.txt` (800 molecules) 
@@ -60,5 +57,3 @@ plot_figure7.py
 <p align="center">
   <img src="./figure7_selected-ex-22447-and-11726.png">
 </p>
-```
-
