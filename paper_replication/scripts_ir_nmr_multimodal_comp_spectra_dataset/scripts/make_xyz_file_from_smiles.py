@@ -69,27 +69,7 @@ if __name__ == "__main__":
     print('number of smiles:', len(list_of_smiles))
     print('uniq number of smiles:', len(set(list_of_smiles)))
 
-    results = []
     for id_, smiles in enumerate(list_of_smiles):
-        # if 'found!' in smiles: continue
         m2, m2txt, natom, total_charge = get_mol_from_smiles(smiles, id_)
-        # Comment the line below to prevent saving ./xyz ...
         m2txt_to_dump_xyz(m2txt, id_, smiles, natom, total_charge)
-        dict_={}
-        dict_['id'] = id_
-        dict_['smiles'] = smiles
-        dict_['natom'] = natom
-        dict_['total_charge'] = int(total_charge)
-        dict_['m2txt'] = m2txt
-        results.append(dict_)
-        print(id_, "smiles:", smiles, " has charge:", total_charge)
 
-    #  with open('m2_results_with_charge.pkl', 'wb') as fo:
-    #      pickle.dump(results, fo, protocol = 4)
-
-    #  with open('m2_results_with_charge.json', 'w') as fo:
-    #      json.dump(results, fo, indent = 4)
-
-    #  for i, r in enumerate(results):
-    #      with open('jsons/'+str(i)+'.json', 'w') as fj:
-    #          json.dump(r, fj, indent = 4)
