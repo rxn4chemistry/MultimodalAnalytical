@@ -9,10 +9,9 @@ import numpy as np
 from scipy import fftpack, signal
 
 
-def gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs) -> None:
+def gen_spectrum_me1(output_autocorrelation_file, dipole_np, md_timestep_in_fs):
     # Inputs
     # T = 300.0  # K
-    output_autocorrelation_file = Path(save_dir) / "autocorr_orig_"+filedipole+".txt"
 
     # Constants
     # boltz = 1.38064852e-23  # m^2 kg s^-2 K^-1
@@ -72,7 +71,7 @@ def gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs) -> None
     return np.column_stack((time[: len(autocorr)], autocorr))
 
 
-def gen_spectrum_me2(save_path, autocorr_xy, md_timestep_in_fs) -> None:
+def gen_spectrum_me2(csv_path, autocorr_xy, md_timestep_in_fs) -> None:
     # Inputs
     # autocorrelation_option = 2  # 1 to calculate it, 2 to load a pre-calculated one
     temp = 300.0  # K
@@ -115,7 +114,7 @@ def gen_spectrum_me2(save_path, autocorr_xy, md_timestep_in_fs) -> None:
 
     # Save data
     np.savetxt(
-        save_path,
+        csv_path,
         np.column_stack(
             (
                 lineshape_frequencies_wn,
@@ -149,15 +148,13 @@ def damp_last_part(x, y, damping_fraction=0.2):
     return np.column_stack((x, y_damped))
 
 
-def plot_auto(filedipole, autocorr, autocorr_damp, save_dir):
+def plot_auto(output_filename, autocorr, autocorr_damp, plot_filename):
     x = autocorr[:,0]
     y = autocorr[:,1]
     y_damped_last_part = autocorr_damp[:,1]
     header_ = "# Time(fs) Autocorrelation(e*Ang)"
 
-    output_filename = Path(save_dir) / "autocorr_damp_"+filedipole+".txt"
     np.savetxt(output_filename, np.column_stack((x, y_damped_last_part)), header=header_, comments='', delimiter=' ')
-    plot_filename = Path(save_dir) / "plot_autocorr_"+filedipole+".png"
     
     # Plotting the original vs. damped signal
     plt.figure(figsize=(10, 6))
@@ -185,24 +182,24 @@ if __name__ == "__main__":
         sys.exit(1)
 
     filedipole = sys.argv[1]
-    save_dir = Path(filedipole)
     md_timestep_in_fs = float(sys.argv[2])
+
+    save_dir = Path(filedipole).parent
+    filename = Path(filedipole).name    # "dipole_id_0.npy"
+    stem = Path(filedipole).stem        # "dipole_id_0"
 
     dipole_np = np.load(filedipole)
     n_points = dipole_np.shape[0]
-    filedipole = Path(filedipole)
-    filedipole = Path(filedipole.replace(".npy", ""))
+    filedipole_stem = Path(filedipole).stem
 
     print("reading from", filedipole, "which contains", n_points, "lines and md_timestep_in_fs = ", md_timestep_in_fs)
 
-    output_autocorrelation_file = Path(save_dir) / "autocorr_orig_"+filedipole+".txt"
-    save_path = Path(save_dir) / "IR-data_"+filedipole+"_auto_damped.csv"
-    csv_path = save_path
-    print("save_path:", save_path)
-    output_filename = Path(save_dir) / "autocorr_damp_"+filedipole+".txt"
-    plot_filename = Path(save_dir) / "plot_autocorr_"+filedipole+".png"
-    autocorr = gen_spectrum_me1(filedipole, dipole_np, save_dir, md_timestep_in_fs)
+    output_autocorrelation_orig = save_dir / f"autocorr_orig_{stem}.txt"
+    output_autocorrelation_damp = save_dir / f"autocorr_damp_{stem}.txt"
+    csv_path = save_dir / f"IR-data_auto_damped_{stem}.csv"
+    plot_filename = Path(save_dir) / f"plot_autocorr_{stem}.png"
+    autocorr = gen_spectrum_me1(output_autocorrelation_orig, dipole_np, md_timestep_in_fs)
     autocorr_damp = damp_last_part(autocorr[:,0], autocorr[:,1], damping_fraction=0.5)
     gen_spectrum_me2(csv_path, autocorr_damp, md_timestep_in_fs)
-    plot_auto(filedipole, autocorr, autocorr_damp, save_dir)
+    plot_auto(output_autocorrelation_damp, autocorr, autocorr_damp, plot_filename)
 
