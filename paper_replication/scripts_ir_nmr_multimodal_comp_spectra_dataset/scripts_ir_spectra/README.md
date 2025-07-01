@@ -25,6 +25,14 @@ This script has been adapted from Efrem Braun https://github.com/EfremBraun/calc
 
 * **Script:** `scripts_ir_spectra/compute_ir_spectra_from_dipole_dipole_autocorrelation.py`
 
+
+```
+bash
+cd ./scripts_ir_spectra
+./compute_ir_spectra_from_dipole_dipole_autocorrelation.py ../sample_data/dipole_id_0.npy 2.5
+```
+This example assumes the dipole has been sampled every 2.5 fs as in `dipole_id_0.npy`. For other files, please change the time accordingly.
+
 **Example Output:**
 See files in 
 `sample_data/autocorr_orig_dipole_id_0.txt`: original dipole-dipole autocorrelation
