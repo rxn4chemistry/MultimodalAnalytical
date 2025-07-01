@@ -6,7 +6,16 @@ The full dataset is publicly available on Zenodo under the Community Data Licens
 ## Description
 
 In the Zenodo dataset [https://doi.org/10.5281/zenodo.15669241](https://doi.org/10.5281/zenodo.15669241), there is one file: `ERROR_PRED_TRUE_DIPOLE.zip`.
-Once unpacked, it contains two folders `DC4` and `DD6`.  
+Alternative to Zenodo: the same file can be found via this link: wget https://ibm.box.com/shared/static/t6chqmflbtotok9m5c8yfdi6a7nct5d8.zip
+```
+bash
+wget https://ibm.box.com/shared/static/t6chqmflbtotok9m5c8yfdi6a7nct5d8.zip
+open t6chqmflbtotok9m5c8yfdi6a7nct5d8.zip
+```
+This alternative will fetch and unpack the file `t6chqmflbtotok9m5c8yfdi6a7nct5d8.zip` producing the folder `ERROR_PRED_TRUE_DIPOLE`.
+
+
+Once unpacked, the folder `ERROR_PRED_TRUE_DIPOLE` contains two folders `DC4` and `DD6`.  
 These folders contain the predicted and ground truth dipole moments for unseen data.  
 - `DC4` contains unseen frames of molecules present in the training set.  
 - `DD6` contains frames of molecules never seen during training.
