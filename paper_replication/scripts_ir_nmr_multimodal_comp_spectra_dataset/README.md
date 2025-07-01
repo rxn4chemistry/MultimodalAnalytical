@@ -49,6 +49,7 @@ pip install matplotlib numpy pandas pyarrow
 ### 1.2 Compute IR Spectra from Dipole–Dipole Autocorrelation
 
 This script computes IR spectra from Molecular Dynamics (MD) trajectory data, specifically from NumPy dipole arrays, using dipole–dipole autocorrelation and Fourier transform.
+This script has been adapted from Efrem Braun https://github.com/EfremBraun/calc-ir-spectra-from-lammps, doi.org/10.5281/zenodo.154672.
 
   * **Script:** `scripts_ir_spectra/compute_ir_spectra_from_dipole_dipole_autocorrelation.py`
 
