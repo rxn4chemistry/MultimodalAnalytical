@@ -11,7 +11,7 @@ IR:
   target: False
   preprocessor_arguments:
     patch_size: 125
-    interplation_merck: False
+    interpolation: False
     masking: False
 Percentage:
   type: 1D_patches
