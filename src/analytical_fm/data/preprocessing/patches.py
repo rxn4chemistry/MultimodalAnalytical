@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 from datasets import Dataset
-from scipy import interpolate
+from scipy.interpolate import interp1d
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -20,7 +20,7 @@ class PatchPreprocessor:
 
     patch_size: int = field(init=True)
     masking: bool = field(init=True)
-    interplation_merck: bool = field(init=True)
+    interpolation: bool = field(init=True)
     overlap: int = field(init=True, default=1)
     derivative: bool = field(init=True, default=False)
 
@@ -45,10 +45,10 @@ class PatchPreprocessor:
             self.mean_deriv = gradient.mean()
             self.std_deriv = gradient.std()
 
-    def interpolation_merck(self, spectra: List[float]) -> List[float]:
-        old_x = np.arange(400, 4000, 2)
+    def interpolate(self, spectra: List[float]) -> List[float]:
+        old_x = np.arange(400, 4000 if len(spectra) == 1800 else 3982, 2)
         new_x = np.arange(650, 3900, 2)
-        interp = interpolate.interp1d(old_x, spectra)
+        interp = interp1d(old_x, spectra)
         return interp(new_x)
 
     def __call__(self, spectra: List[List[float]]) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -66,8 +66,8 @@ class PatchPreprocessor:
             if spectra[i] is None:
                 spectra[i] = [0] * max_spec_size
 
-        if self.interplation_merck:
-            spectra = [self.interpolation_merck(spectrum) for spectrum in spectra]
+        if self.interpolation:
+            spectra = [self.interpolate(spectrum) for spectrum in spectra]
 
         # Concert to tensor
         spectra_tensor = torch.Tensor(spectra)

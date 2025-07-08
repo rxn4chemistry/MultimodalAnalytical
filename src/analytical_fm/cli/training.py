@@ -23,8 +23,8 @@ import pandas as pd
 import torch
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from utils import StreamToLogger  # type: ignore
 
+from analytical_fm.cli.utils import StreamToLogger  # type: ignore
 from analytical_fm.configuration import DEFAULT_SETTINGS
 from analytical_fm.data.data_utils import load_preprocessors
 from analytical_fm.data.datamodules import MultiModalDataModule
@@ -224,7 +224,7 @@ def main(config: DictConfig):
             metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=predictions['classes'], molecules=config['molecules'], logging=True)
 
     
-            rank = torch.distributed.get_rank() if torch.cuda.is_available() else 0
+            rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
             save_path = (
                 Path(config["working_dir"])
                 / config["job_name"]
