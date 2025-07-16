@@ -1,13 +1,16 @@
 # Analytical Foundation Models
 
-This repository contains the official implementation of the research presented in:
-- ["From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation"](https://chemrxiv.org/engage/chemrxiv/article-details/67c813e86dde43c90891f1f6)
-- ["Setting New Benchmarks in AI-driven Infrared Structure Elucidation"](https://chemrxiv.org/engage/chemrxiv/article-details/67eaab5c6dde43c908da98cd)
+This repository contains the official implementation of the results shown in:
+- ["From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation"](https://pubs.rsc.org/en/content/articlelanding/2025/dd/d5dd00131e)
+- ["Setting New Benchmarks in AI-driven Infrared Structure Elucidation"](https://pubs.acs.org/doi/10.1021/acs.analchem.5c01460)
+- ["Automated Structure Elucidation at Human-Level Accuracy via a Multimodal Multitask Language Model"](https://chemrxiv.org/engage/chemrxiv/article-details/682eccb7c1cb1ecda0b3c633)
+- ["Language Model Enabled Structure Prediction from Infrared Spectra of Mixtures"](https://chemrxiv.org/engage/chemrxiv/article-details/686249a91a8f9bdab5bfefee)
+- ["IR–NMR Multimodal Computational Spectra Dataset for 177K Patent-Extracted Organic Molecules"](https://chemrxiv.org/engage/chemrxiv/article-details/684f1f86c1cb1ecda0230ceb)
   
-It provides the complete codebase needed to reproduce our results and train models on <sup>31</sup>P-NMR spectra and IR spectra. The framework is build on PyTorch, PyTorch Lightning and Hugginface. To install it follow the instructions below.
+It provides the complete codebase needed to reproduce our results and train models on spectra obtained via IR and NMR spectroscopy. The framework is build on PyTorch, PyTorch Lightning and Hugginface. To install it follow the instructions below.
 
 ## Installation
-To install the code base ensure that you have at least Python 3.10 installed. Then follow the steps below:
+To install the code base ensure that you have at least Python 3.10 installed. Then follow the steps below. Typically installation takes less than two minutes.
 
 ```
 pip install uv
@@ -16,9 +19,7 @@ uv pip install -e .[dev]
 ```
 
 ## Usage
-To run the code all the paths and parameters in `scripts/train_model.sh` need to be changed accordingly.
-Especially, to change the data for the training the config, column, modality, ... parameters need to be changed.
-Ex.  
+An example to train a model is provided in `scripts/train_model.sh`. The parameters present need to changed according to the desired settings. To change the data for the training the config, column, modality, ... parameters need to be changed. As an example to change the column in the datafile the IR spectra are drawn from change the following parameters. However, we recommended to follow the instructions in the paper replication guides.
 `data.IR.column=ir_spectra \`
 
 ## Replication
@@ -26,3 +27,5 @@ Complete instructions for reproducing the results presented in our papers are pr
 
 - Phosphor: [here](paper_replication/phosphor)
 - IR: [here](paper_replication/ir)
+- Mixtures: [here](paper_replication/mixture)
+- Dataset: [here](paper_replication/scripts_ir_nmr_multimodal_comp_spectra_dataset)
