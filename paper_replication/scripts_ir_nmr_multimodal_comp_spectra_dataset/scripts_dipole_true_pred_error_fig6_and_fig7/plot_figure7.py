@@ -8,7 +8,7 @@ y_pred_mols = np.load("y_pred_unseen_molecules_selected.npy")
 y_true_mols = np.load("y_true_unseen_molecules_selected.npy")
 
 # Plot settings
-labels = ["dipole X", "dipole Y", "dipole Z"]
+labels = ["dipole-x", "dipole-y", "dipole-z"]
 colors = ["tab:red", "tab:green", "tab:blue"]
 ff = 3.2  # Axis limit
 
@@ -26,8 +26,8 @@ for i in range(3):
 
 plt.plot([-ff, ff], [-ff, ff], 'k--', linewidth=2)
 #plt.title("Unseen Molecules – XYZ", fontsize=36)
-plt.xlabel("true dipole moments", fontsize=38)
-plt.ylabel("predicted dipole moments", fontsize=38)
+plt.xlabel("True Value", fontsize=38)
+plt.ylabel("Predicted Value", fontsize=38)
 plt.xticks(fontsize=32)
 plt.yticks(fontsize=32)
 plt.legend(fontsize=32)
