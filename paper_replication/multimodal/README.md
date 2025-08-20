@@ -33,7 +33,7 @@ The experimental data used in this paper consists of the [Chemical Education Dat
 
 ## Replicating Table 1
 
-Table 1 contains the performance of singletask models trained to predict the chemical structure from IR, 13C-NMR, 1H-NMR, and all three combined as well as a multitasking model trained to accomplish all four tasks. A pretrained checkpoint for the multitasking model is provided on [Zenodo]().
+Table 1 contains the performance of singletask models trained to predict the chemical structure from IR, 13C-NMR, 1H-NMR, and all three combined as well as a multitasking model trained to accomplish all four tasks. A pretrained checkpoint for the multitasking model is provided on [Zenodo](https://zenodo.org/records/16914550).
 
 To pretrain the singletask models run the following script:
 ```
