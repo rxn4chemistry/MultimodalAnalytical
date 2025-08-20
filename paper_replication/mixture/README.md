@@ -31,7 +31,7 @@ This script downloads the synthetic data and processes it into a format compatib
 
 The experimental data used in this paper consists of the [NIST/EPA Gas-Phase Infrared Database](https://www.nist.gov/srd/nist-standard-reference-database-35). A license for the dataset can be obtained at the link above. We have supplied a [script](scripts/filter_nist.py) to filter the molecules from the dataset to produce the same finetuning set as used in our paper.
 
-**NOTE: Finetuning script is ommitted for all the scripts, for readability. To run finetuning refere to `./scripts/replicate_table_3.sh`.**
+**NOTE: Finetuning script is ommitted for all the scripts, for readability. To run finetuning refer to `./scripts/replicate_table_3.sh`.**
 
 ## Replicating Table 1
 

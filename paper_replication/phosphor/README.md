@@ -1,6 +1,6 @@
 # From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation
 
-This document contains the steps to reproduce the results in the paper [From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation](). All scripts were tested on Linux and MacOS.
+This document contains the steps to reproduce the results in the paper [From Spectra to Structure: AI-Powered <sup>31</sup>P-NMR Interpretation](https://pubs.acs.org/doi/10.1021/acs.analchem.5c01460). All scripts were tested on Linux and MacOS.
 
 <p align='center'>
   <img src='../figures/phosphor.png'>

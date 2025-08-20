@@ -115,10 +115,6 @@ def main(config: DictConfig):
                     pickle.dump((data_config, preprocessors), f)
             logging.info("Built preprocessors")
 
-            if config["finetuning"] and 'MSMS' in preprocessors:
-                preprocessors['MSMS'].max_sequence_length = model_config["max_position_embeddings"] - 100
-                logging.info(f"Arbitrarily set max_len_seq to {preprocessors['MSMS'].max_sequence_length}")
-
             # Load datamodule
             model_type = model_config["model_type"]
             batch_size = model_config["batch_size"]
