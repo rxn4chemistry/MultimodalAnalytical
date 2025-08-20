@@ -28,4 +28,5 @@ Complete instructions for reproducing the results presented in our papers are pr
 - Phosphor: [here](paper_replication/phosphor)
 - IR: [here](paper_replication/ir)
 - Mixtures: [here](paper_replication/mixture)
+- Multimodal: [here](paper_replication/multimodal)
 - Dataset: [here](paper_replication/scripts_ir_nmr_multimodal_comp_spectra_dataset)
