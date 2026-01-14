@@ -15,16 +15,15 @@ import shutil
 import sys
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, List, TextIO, cast
+from typing import Any, Dict, TextIO, cast
 
 import hydra
-import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
+from .utils import StreamToLogger  # type: ignore
 
-from analytical_fm.cli.utils import StreamToLogger  # type: ignore
 from analytical_fm.configuration import DEFAULT_SETTINGS
 from analytical_fm.data.data_utils import load_preprocessors
 from analytical_fm.data.datamodules import MultiModalDataModule
@@ -36,7 +35,10 @@ from analytical_fm.trainer.trainer import build_trainer
 from analytical_fm.utils import (
     calc_sampling_metrics,
     calculate_training_steps,
+    evaluate,
     fail_safe_conditional_distributed_barrier,
+    reject_sample,
+    save_to_files,
     seed_everything,
 )
 
@@ -73,7 +75,10 @@ def main(config: DictConfig):
 
     with contextlib.redirect_stderr(stream):  # type:ignore
         try:
-            seed_everything()
+            if config["seed"]:
+                seed_everything(seed=config["seed"])
+            else:
+                seed_everything()
 
             # Load dataset
             data_config = config["data"].copy()
@@ -85,6 +90,14 @@ def main(config: DictConfig):
             fail_safe_conditional_distributed_barrier(
                 lambda: torch.distributed.get_rank() > 0
             )
+
+            classes = None
+            rejection_sampling = model_config["rejection_sampling"] if "rejection_sampling" in model_config else False
+            if not model_config["n_beams"]:
+                model_config["n_beams"] = 50 if rejection_sampling else 10
+            n_beams = model_config["n_beams"]
+
+            device = "cuda" if torch.cuda.is_available() else "cpu"
 
             data_config, dataset = build_dataset_multimodal(
                 data_config, # type: ignore
@@ -114,6 +127,10 @@ def main(config: DictConfig):
                 with preprocessor_path.open("wb") as f:
                     pickle.dump((data_config, preprocessors), f)
             logging.info("Built preprocessors")
+
+            if 'MSMS' in preprocessors.keys() and preprocessors['MSMS'].max_sequence_length > 924:
+                preprocessors['MSMS'].max_sequence_length = model_config["max_position_embeddings"] - 100
+                logging.info(f"Changed max_len_seq to {preprocessors['MSMS'].max_sequence_length}")
 
             # Load datamodule
             model_type = model_config["model_type"]
@@ -147,102 +164,91 @@ def main(config: DictConfig):
                 **model_config,
             )
 
-            #  Create Trainer
+            # Create Trainer
             trainer = build_trainer(model_type, **config["trainer"])
 
-            # Train
+            # Load model
             checkpoint_path = model_config["model_checkpoint_path"]
             if config["finetuning"]:
-                checkpoint = torch.load(model_config["model_checkpoint_path"])
-
+                checkpoint = torch.load(model_config["model_checkpoint_path"], map_location=device)
                 keys_align = [k for k in checkpoint["state_dict"].keys() if "align_network" in k]
-
                 if len(keys_align) != 0 and model_config["align_config"] is None:
                     for k in keys_align:
                         del checkpoint["state_dict"][k]
-
                 model.load_state_dict(checkpoint["state_dict"])
                 logger.info(f"Loaded checkpoint from {checkpoint_path}.")
+
+                if config['eval_before_training']:
+                    logger.info("*** Zero-shot evaluation before training ***")
+                    model.eval()
+                    model.to(device)
+
+                    # Evaluation -- before training
+                    predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams)
+
+                    # Rejection sampling
+                    if rejection_sampling:
+                        predictions = reject_sample(predictions, molecules=config['molecules'])
+                    
+                    metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=classes, molecules=config['molecules'], logging=True)
+                    predictions_path, metrics_path = save_to_files(predictions, metrics, config, n_beams, "before_training-")
+                    
+                    logger.info(f"Predictions saved to: {predictions_path}")
+                    logger.info(f"Metrics saved to: {metrics_path}")
+
+                model.train()
+                model.to(device)
+            else:
+                logger.info(f"Resume training from {checkpoint_path}.")
+            
+            # Training
+            if config["finetuning"]:
                 trainer.fit(model, datamodule=data_module)
             else:
                 trainer.fit(model, datamodule=data_module, ckpt_path=checkpoint_path)
 
-
-            # Load best model
-            best_model_path = trainer.checkpoint_callback.best_model_path  # type: ignore
-            logger.info(f"Loading best Model from: {best_model_path}")
-
-            shutil.copy(Path(best_model_path), f"{Path(best_model_path).parent}/best.ckpt")
-
-            best_checkpoint = torch.load(best_model_path)
-
+            # Evaluation -- end of training
             model = HFWrapper(
                 data_config=data_config,
                 target_tokenizer=preprocessors[target_modality],
                 num_steps=train_steps,
-                modality_dropout = modality_dropout,
+                modality_dropout=modality_dropout,
                 **model_config,
             )
 
-            model.load_state_dict(best_checkpoint["state_dict"])
+            # Load best model
+            if trainer.checkpoint_callback is not None:
+                if config["eval_ckpt"] == 'best':
+                    best_model_path = trainer.checkpoint_callback.best_model_path # type: ignore
+                    logger.info(f"Loading best Model from: {best_model_path}")
+                    shutil.copy(Path(best_model_path), f"{Path(best_model_path).parent}/best.ckpt")
+                    best_checkpoint = torch.load(best_model_path)
+                    model.load_state_dict(best_checkpoint["state_dict"])
+                elif config["eval_ckpt"] == 'last':
+                    last_model_path = trainer.checkpoint_callback.last_model_path # type: ignore
+                    logger.info(f"Using last ckpt: {last_model_path}")
+                    last_checkpoint = torch.load(last_model_path)
+                    model.load_state_dict(last_checkpoint["state_dict"])
+                else:
+                    raise ValueError("Unknown evaluation checkpoint method.")
 
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            model.eval()
-            model.to(device)
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                model.eval()
+                model.to(device)
 
-            # Evaluate best model
-            n_beams = config["model"]["n_beams"] if "n_beams" in config["model"] else 10
-            classes = None
+                predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams)
 
-            logger.info(f"Calculating metrics for class: {predict_class}")
-            if predict_class and predict_class in data_config.keys():
-                logger.info("Class is present in the dataset.")
-                classes = []
-                for batch in data_module.predict_dataloader():
-                    classes.extend(batch[predict_class])
-
-                if isinstance(classes[0],list):
-                    classes = [cl[0] for cl in classes]
-
-                logger.info(f"Classes: {set(classes)}")
-                logger.info(f"Len of classes array: {len(classes)}")
-
-            batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module) # type:ignore
-            
-            # Concatenate Predictions
-            predictions = {
-                'avg_loss': np.mean([batch['loss'] for batch in batch_predictions]),
-                'predictions': [batch['predictions'][i * n_beams : (i+1) * n_beams] for batch in batch_predictions for i in range(len(batch['predictions']) // n_beams)],
-                'targets': [target for batch in batch_predictions for target in batch['targets']],
-                'classes': [cl for batch in batch_predictions for cl in batch[predict_class]] if predict_class else None,
-            }
-            
-            metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=predictions['classes'], molecules=config['molecules'], logging=True)
-
-    
-            rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
-            save_path = (
-                Path(config["working_dir"])
-                / config["job_name"]
-                / f"test_data_logits_beam_{n_beams}_{rank}.pkl"
-            )
-            with (save_path).open("wb") as save_file:
-                pickle.dump(
-                    predictions,
-                    save_file,
-                )
-
-            #save metrics
-            metrics_path = (
-                Path(config["working_dir"])
-                / config["job_name"]
-                / f"metrics_beam_{n_beams}_{rank}.json"
-            )
-            with (metrics_path).open("w") as metrics_file:
-                json.dump(metrics, metrics_file)
+                # Rejection sampling
+                if rejection_sampling:
+                    predictions = reject_sample(predictions, molecules=config['molecules'])
                 
-            logger.info(f"Metrics saved to: {metrics_path}")
-            
+                metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=classes, molecules=config['molecules'], logging=True)
+                predictions_path, metrics_path = save_to_files(predictions, metrics, config, n_beams, "after_training-")
+                    
+                logger.info(f"Predictions saved to: {predictions_path}")
+                logger.info(f"Metrics saved to: {metrics_path}")
+
+                        
         except Exception:
             logger.exception("Pipeline execution failed!")
 

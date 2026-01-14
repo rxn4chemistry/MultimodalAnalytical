@@ -279,15 +279,10 @@ def build_dataset_multimodal(
     mixture_config: Optional[DictConfig] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
     
-    if not Path(data_path).is_dir():
-        raise ValueError(
-            "Data path must specify path to directory containing the dataset files as parqet."
-        )
-    
     relevant_columns = set()
     for modality in data_config.keys():
         if isinstance(data_config[modality]["column"], str):
-            if data_config[modality]["column"] not in ["percentage"] and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
+            if data_config[modality]["column"] not in ["percentage"]: # and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
                 relevant_columns.add(data_config[modality]["column"])
         elif isinstance(data_config[modality]["column"], list):
             relevant_columns.update(data_config[modality]["column"])
@@ -297,8 +292,15 @@ def build_dataset_multimodal(
             )
     
     logger.info(f"Loading dataset from {data_path}")
-    dataset_dict = load_dataset("parquet", data_dir=data_path, num_proc=num_cpu, columns=list(relevant_columns))
-    logger.info("Dataset Loaded")
+    if Path(data_path).is_dir():
+        dataset_dict = load_dataset("parquet", data_dir=data_path, num_proc=num_cpu, columns=list(relevant_columns))
+    elif Path(data_path).is_file():
+        dataset_dict = load_dataset("parquet", data_files=data_path, num_proc=num_cpu, columns=list(relevant_columns))
+    else:
+        raise ValueError(
+            "data_path must specify path to either directory containing files as parquets or a parquet file."
+        )
+
     # Concatenates all datasets into a single test set
     if splitting == "test_only":
         datasets = list(dataset_dict.values())
@@ -334,6 +336,11 @@ def build_dataset_multimodal(
     # Sanity check for loading a dataset already split into train/test/val
     elif splitting == "given_splits" and len(dataset_dict) == 3:
 
+        if not Path(data_path).is_dir():
+            raise ValueError(
+                f"If given_splits used, data_path has to be a directory containing train, validation, test set as parquet files."
+            )
+
         if set(dataset_dict.keys()) != {"train", "validation", "test"}:
             raise ValueError(
                 f"Expected ['train', 'validation', 'test'] in dataset but found {list(dataset_dict.keys())}."
@@ -352,7 +359,7 @@ def build_dataset_multimodal(
     rename_columns = dict()
     for modality in data_config.keys():
         if isinstance(data_config[modality]["column"], str):
-            if data_config[modality]["column"] not in ["percentage"] and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
+            if data_config[modality]["column"] not in ["percentage"]: # and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
                 rename_columns[data_config[modality]["column"]] = modality
 
     processed_dataset_dict = DatasetDict()
@@ -370,4 +377,5 @@ def build_dataset_multimodal(
             logger.info(f"Max len for {dataset_key}: {processed_dataset_dict[dataset_key]._length}")
         logger.info("IR spectra Iterable Dataset created!")
 
+    logger.info("Dataset Loaded")
     return data_config, processed_dataset_dict

@@ -8,6 +8,7 @@ from .preprocessing.functional_group import FunctionalGroupPreprocessor
 from .preprocessing.msms_number import MSMSNumberPreprocessor
 from .preprocessing.msms_text import MSMSTextPreprocessor
 from .preprocessing.multiplets import MultipletPreprocessor
+from .preprocessing.no_action import NoActionPreprocessor
 from .preprocessing.normalization import NormalisePreprocessor
 from .preprocessing.onehot import OneHotPreprocessor
 from .preprocessing.patches import PatchPreprocessor
@@ -32,6 +33,7 @@ PREPROCESSORS = {
     "peak_positional_encoding": PeakPositionalEncodingPreprocessor,
     "run_length_encoding": RunLengthEncodingPreprocessor,
     "text_spectrum": TextSpectrumPreprocessor,
+    "no_action": NoActionPreprocessor,
 }
 
 return_type = Union[
@@ -43,4 +45,5 @@ return_type = Union[
     PeakPositionalEncodingPreprocessor,
     RunLengthEncodingPreprocessor,
     TextSpectrumPreprocessor,
+    NoActionPreprocessor,
 ]

@@ -15,9 +15,12 @@ cv_split: 0
 
 finetuning: False
 molecules: True
+modality_dropout: null
 num_cpu: 7
 predict_class: null
 mixture: null 
+seed: 3247
+eval_points_test: null
 
 trainer:
   log_dir: ${working_dir}
@@ -43,3 +46,5 @@ defaults:
   - debug: null
 
   - mixture: null
+
+  - activeft: null

@@ -7,7 +7,7 @@ from omegaconf.listconfig import ListConfig
 from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 from torch import nn
-from torch.optim.lr_scheduler import OneCycleLR
+from torch.optim.lr_scheduler import ExponentialLR, OneCycleLR
 from transformers import (
     AutoConfig,
     AutoTokenizer,
@@ -19,9 +19,8 @@ from transformers import (
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.modeling_outputs import Seq2SeqModelOutput
 
-from analytical_fm.utils import calc_sampling_metrics
-
 from ..generation.logit_processors import GuidedFormulaProcessor
+from ..utils import calc_sampling_metrics
 from .custom_bart_modeling import CustomBartConfig, CustomBartForConditionalGeneration
 from .custom_modeling import AlignConfig, CustomConfig, CustomModel
 from .utils import CustomLMOutput, DummyLayer, MultimodalEmbedding, SincCosPositionalEncoding
@@ -271,6 +270,10 @@ class HFWrapper(pl.LightningModule):
         self.multimodal_norm = multimodal_norm
         self.modality_dropout = modality_dropout
         self.guided_generation = kwargs['guided_generation'] if 'guided_generation' in kwargs else False
+        self.lr_scheduler = kwargs['lr_scheduler'] if 'lr_scheduler' in kwargs else False
+        self.gamma = kwargs['lr_gamma'] if 'lr_gamma' in kwargs else 0.95
+
+        self.set_sel_indices: set = set()
 
         # Extract Target modality
         self.target_modality = ""
@@ -286,6 +289,7 @@ class HFWrapper(pl.LightningModule):
         self.adam_beta2 = adam_beta2
         self.num_steps = num_steps
 
+        self.train_step_outputs: List[Dict[str, Any]] = list()
         self.validation_step_outputs: List[Dict[str, Any]] = list()
         self.test_step_outputs: List[Dict[str, Any]] = list()
 
@@ -331,11 +335,21 @@ class HFWrapper(pl.LightningModule):
             betas=(self.adam_beta1, self.adam_beta2),
         )
 
-        print("Using cyclical LR schedule.")
-        cycle_sch = OneCycleLR(optim, self.lr, total_steps=self.num_steps)
-        sch = {"scheduler": cycle_sch, "interval": "step"}
-
-        return [optim], [sch]
+        if self.lr_scheduler == "cyclic":
+            print("Using cyclical LR scheduler")
+            cycle_sch = OneCycleLR(optim, max_lr=self.lr, total_steps=self.num_steps)
+            sch = {"scheduler": cycle_sch, "interval": "step"}
+            return [optim], [sch]
+        
+        elif self.lr_scheduler == "exp":
+            print("Using exponential LR scheduler")
+            exp_sch = ExponentialLR(optim, gamma=self.gamma)
+            sch = {"scheduler": exp_sch, "interval": "epoch"}
+            return [optim], [sch]
+        
+        elif self.lr_scheduler == "constant":
+            print("Using constant LR")
+            return [optim]
 
     def forward(self, batch: Dict[str, Any]) -> Seq2SeqModelOutput:
         """Forward step of the model.
@@ -441,7 +455,7 @@ class HFWrapper(pl.LightningModule):
 
         return generated_sequences
 
-    def training_step(self, batch: Dict[str, Any], batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: Dict[str, Any]) -> torch.Tensor:
         """Training step implementation for pytorch lightning.
         Args:
             batch: batch containing input, mask, etc.
@@ -453,29 +467,24 @@ class HFWrapper(pl.LightningModule):
         model_output = self.forward(batch)
         loss = model_output.loss
 
-        if (batch_idx % 10) == 0:
-            self.log(
-                "train_loss",
-                loss,
-                prog_bar=True,
-                on_step=True,
-                logger=True,
-                sync_dist=True,
-            )
-            if isinstance(model_output, CustomLMOutput):
-                if model_output.loss_dict:
-                    for key in model_output.loss_dict.keys():
-                        if model_output.loss_dict[key]:
-                            self.log(
-                                f"train_{key}",
-                                model_output.loss_dict[key],
-                                prog_bar=True,
-                                on_step=True,
-                                logger=True,
-                                sync_dist=True,
-                            )
+        self.train_step_outputs = model_output
+        if isinstance(model_output, CustomLMOutput):
+            if model_output.loss_dict:
+                for key in model_output.loss_dict.keys():
+                    if model_output.loss_dict[key]:
+                        self.log(
+                            f"train_{key}",
+                            model_output.loss_dict[key],
+                            prog_bar=True,
+                            on_step=True,
+                            logger=True,
+                            sync_dist=True,
+                        )
 
         return loss
+    
+    def on_train_epoch_end(self):
+        self.log("len_set_sel", len(self.set_sel_indices), prog_bar=True, on_epoch=True, logger=True)
 
     def validation_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Any]: # noqa: ARG002
         """Validation step implementation for pytorch lightning.
@@ -502,7 +511,6 @@ class HFWrapper(pl.LightningModule):
         val_outputs = {
             "val_loss": loss,
             "val_token_acc": token_acc,
-            "val_molecular_accuracy_tensorboard": torch.Tensor([scores["Top-1"]]).to(device=loss.device),
             "val_molecular_accuracy": torch.Tensor([scores["Top-1"]]).to(device=loss.device),
         }
         if isinstance(model_output, CustomLMOutput):
@@ -565,10 +573,10 @@ class HFWrapper(pl.LightningModule):
                     "val_molecular_accuracy",
                     val,
                     prog_bar=True,
-                    logger=False,
+                    logger=True,
                     sync_dist=True,
                 )
-            else:
+            elif val:
                 self.log(key, val, sync_dist=True)
 
     def score_val_sequences(

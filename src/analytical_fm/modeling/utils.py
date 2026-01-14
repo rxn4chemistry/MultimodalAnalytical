@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, Union
 
 import torch
+from loguru import logger
 from torch import nn
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
@@ -72,7 +73,7 @@ class MultimodalEmbedding(nn.Module):
 
     def _create_embedding(
         self, modality_config: Dict[str, Any]
-    ) -> Union[nn.Embedding, nn.Linear]:
+    ) -> Union[nn.Embedding, nn.Linear, nn.Identity]:
         """Create Embedding layers. Replace with Registry at some point.
         Args:
             modality_config: Config specifying the parameters for the embedding
@@ -80,7 +81,7 @@ class MultimodalEmbedding(nn.Module):
               Embedding Layer: Either classical embedding or linear
         """
 
-        embedding_layer: Union[nn.Embedding, nn.Linear]
+        embedding_layer: Union[nn.Embedding, nn.Linear, nn.Identity]
         if modality_config["type"] in [
             "text",
             "text_spectrum",
@@ -130,6 +131,9 @@ class MultimodalEmbedding(nn.Module):
                 )
             else:
                 raise NotImplementedError
+        elif modality_config['type'] == "no_action":
+            logger.warning('No embedding defined for modality no_action')
+            embedding_layer = nn.Identity()
         else:
             raise NotImplementedError(
                 f'Unknown modality type: {modality_config["type"]}'
@@ -173,7 +177,7 @@ class MultimodalEmbedding(nn.Module):
 
         # Apply positional encodings
         if self.do_positional_encodings:
-            embedding_tensor = embedding_tensor + self.positional_encodings(embedding_tensor)
+            embedding_tensor = embedding_tensor + self.positional_encodings(embedding_tensor) # type: ignore
 
         return embedding_tensor
 

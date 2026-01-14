@@ -1,0 +1,12 @@
+test_portion: null
+reduced_val: True
+nearest_neighbors: null
+only_faiss: True
+save_embeddings: False
+similarity_criterion: fingerprints
+n_train_points: null
+n_test_points: 1
+n_clusters: 100
+update_embeddings: 1
+multiple_models: False
+repeat_training: 1

@@ -15,7 +15,8 @@ from .utils import CustomLMOutput, Lambda, MultimodalEmbedding, sid
 LOSS_FACTORY: Dict[str, Callable] = {
     "mse": nn.MSELoss(),
     "mae": nn.L1Loss(),
-    "sid": sid
+    "sid": sid,
+    "bce": nn.BCEWithLogitsLoss()
 }
 
 
@@ -222,7 +223,6 @@ class CustomEncoder(nn.TransformerEncoder):
         Returns:
             BaseModelOutput: Output of the transformer containing the last hidden state and attention mask
         """
-        
         if isinstance(attention_mask, torch.Tensor):
             src_key_padding_mask = ~attention_mask.clone().bool()
         else:
@@ -286,7 +286,6 @@ class CustomDecoder(nn.TransformerDecoder):
         Returns:
             BaseModelOutputWithPastAndCrossAttentions: Contains encoder output
         """
-        
         encoder_attention_mask_bool = ~encoder_attention_mask.bool()
 
         if isinstance(attention_mask, torch.Tensor):
@@ -296,7 +295,7 @@ class CustomDecoder(nn.TransformerDecoder):
         
         decoder_embeds = self.embedding({self.target_modality: input_ids})
         seq_len = input_ids.shape[1]
-        tgt_mask = nn.Transformer.generate_square_subsequent_mask(seq_len, device=decoder_embeds.device)
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(seq_len, device=decoder_embeds.device).bool()
 
         decoder_output = super().forward(
             decoder_embeds,
@@ -387,7 +386,7 @@ class CustomModel(PreTrainedModel, GenerationMixin):
                         config.align_config.hidden_dimension,
                         config.align_config.output_dimension
                     ),
-                    nn.Sigmoid()
+                    # nn.Sigmoid()
                 )
 
         # Decoder
@@ -457,8 +456,8 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             num_unmasked = mask.sum(dim=1)
             align_input = (encoder_outputs['last_hidden_state'] * mask).sum(dim=1) / num_unmasked
             pred = self.align_network(align_input)
-            target = encoder_align_target
-            align_loss = align_loss_function(pred , target)
+            target = encoder_align_target.float() if encoder_align_target is not None else None
+            align_loss = align_loss_function(pred, target)
             align_loss_lambda = self.config.align_config.loss_lambda
 
 
@@ -481,7 +480,8 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             total_loss = masked_lm_loss + align_loss_lambda * align_loss
             loss_dict={
                 "model_only_loss" : masked_lm_loss,
-                "alignment_loss": align_loss  if self.align_network else None
+                "alignment_loss": align_loss  if self.align_network else None,
+                "alignment_loss_scaled": align_loss_lambda * align_loss if self.align_network else None
             }
         else:
             total_loss = None
@@ -495,3 +495,56 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             encoder_hidden_states=encoder_outputs['last_hidden_state'],
             loss_dict=loss_dict
         )
+
+    def encode(
+        self,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[Dict[str, Any]] = None,
+        # use_cache: Optional[bool] = False, # noqa: ARG002
+        # return_dict: Optional[bool] = False # noqa: ARG002
+    ) -> Dict[str, Any]:
+        """ Forward. Converts input from HF into a form compatible w. torch Transformer.
+        Args:
+            inputs_embeds: Encoder input embeddings
+            attention_mask: Encoder attention mask
+            encoder_outputs: Encoder output containing encoder last hidden state and encoder attention mask
+            
+            All others are to ensure compatability with HF but are not used.
+        
+        Returns:
+            CustomLMOutput: Contains loss, logits and encoder/decoder output
+        """
+
+        # Encode
+        if not isinstance(encoder_outputs, dict):
+            encoder_outputs = self.encoder(inputs_embeds, attention_mask=attention_mask)
+
+        return encoder_outputs
+    
+    def predict_fingerprint(self,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[Dict[str, Any]] = None,
+        embeddings: Optional[torch.Tensor] = None,
+        # use_cache: Optional[bool] = False, # noqa: ARG002
+        # return_dict: Optional[bool] = False # noqa: ARG002
+    ) -> Dict[str, Any]:
+        """ TODO: write docstrings
+        """
+        # Encode
+        if embeddings is None:
+            encoder_outputs = self.encoder(inputs_embeds, attention_mask=attention_mask)
+            attention_mask = encoder_outputs.attention_mask
+            embeddings = encoder_outputs.last_hidden_state
+            # take the mean
+            embeddings = torch.stack([torch.mean(vec[att==1], dim=0) for vec, att in zip(embeddings, attention_mask)])
+            # embeddings = torch.cat((embeddings, embeddings_chunk), 0)
+        
+        if self.align_network:
+            align_input = embeddings.to(self.device)
+            align_output = self.align_network(align_input)
+            add_layer = nn.Sigmoid()
+            return add_layer(align_output)
+        else:
+            raise ValueError("Cannot call predict_fingerprints if no align network was instantiated.")

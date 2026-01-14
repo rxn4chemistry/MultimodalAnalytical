@@ -24,7 +24,7 @@ class GuidedFormulaProcessor(LogitsProcessor):
         super().__init__()
 
         # To do: Make atom list flexible
-        self.atom_list = list(["C", "N", "O", "S", "P", "F", "Cl", "Br", "I", "B", "Si", "H", "Se","As"])
+        self.atom_list = list(["C", "N", "O", "S", "P", "F", "Cl", "Br", "I", "B", "Si", "H", "Se", "As", "Li", "Na", "Sn", "Te", "Al", "Zn", "Pb", "Hg", "Ag", "Ge", "Ti", "Sb", "Mg", "Bi", "K"])
         self.n_beams = n_beams
         self.target_tokenizer = target_tokenizer
         self.eos_token_id = target_tokenizer.eos_token_id

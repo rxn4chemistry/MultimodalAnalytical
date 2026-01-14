@@ -1,6 +1,6 @@
 model_type: 'CustomModel'
 model_name: 'facebook/bart-base'
-d_model: 512 
+d_model: 1024 
 num_heads: 8 
 encoder_attention_heads: 8 
 decoder_attention_heads: 8
@@ -11,29 +11,30 @@ decoder_ffn_dim: 2048
 multimodal_norm: True
 final_layer_norm: True
 positional_encoding_type: sin_cos
-gated_linear: False
+gated_linear: True
 post_layer_normalisation: True
 
 optimiser: adamw
 lr: 1e-4
+lr_scheduler: exp
 weight_decay: 0.0
 adam_beta1: 0.9
 adam_beta2: 0.999
 
 model_checkpoint_path: null
-batch_size: 128
+batch_size: 16
 cv_split: 0
-guided_generation: False
+guided_generation: True
 max_position_embeddings: 1024
 
 align_config:
-  align_network: convolutional
+  align_network: mlp
   hidden_dimension: 256
   conv_channels: 512
   kernel_size: 5
-  output_dimension: 1800
-  loss_lambda: 50
-  loss_function: mae
+  output_dimension: 128
+  loss_lambda: 1
+  loss_function: bce
 
-n_beams: 10
-rejection_sampling: False
+n_beams: null
+rejection_sampling: True

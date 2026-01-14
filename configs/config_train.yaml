@@ -19,17 +19,24 @@ modality_dropout:
 num_cpu: 7
 predict_class: null
 mixture: null 
+seed: 3247
+eval_ckpt: best
+eval_before_training: False
 
 trainer:
   log_dir: ${working_dir}
   task: ${job_name}
-  epochs: 60
+  epochs: 100
   acc_batches: 4
   clip_grad: 1.0
   limit_val_batches: 1.0
   checkpoint_monitor: val_molecular_accuracy
   val_check_interval: null
-  early_stopping_patience: null
+  early_stopping_patience: 10
+  early_stopping_delta: 0.001
+  save_checkpoints: every_5_epochs
+  early_stopping_len_set_sel: False
+  update_dataloaders: null
 
 defaults:
   - _self_
@@ -46,6 +53,8 @@ defaults:
   - debug: null
 
   - mixture: null
+
+  - activeft: null
 
 
 

@@ -1,8 +1,12 @@
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
+from loguru import logger
+import random
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset, DatasetDict, IterableDataset
@@ -13,6 +17,8 @@ from ..configuration import DEFAULT_SETTINGS
 from .data_utils import IterableDatasetWithLength
 from .preprocessors import PatchPreprocessor
 
+import faiss, math # type:ignore
+from activeft.sift import Retriever # type:ignore
 
 @dataclass
 class MultiModalDataCollator:
@@ -155,7 +161,7 @@ class MultiModalDataCollator:
         alignment_input = None
         if len(self.alignment_modality) == 1:
             alignment_input = torch.tensor(np.array(batch_dict[self.alignment_modality[0]]))
-            if alignment_input.shape[1] < 1800:
+            if isinstance(self.preprocessors[self.alignment_modality[0]], PatchPreprocessor) and alignment_input.shape[1] < 1800:
                 alignment_input = torch.nn.functional.pad(alignment_input, (0, 1800 - alignment_input.shape[1]), "constant", 0)
 
             if self.data_config[self.alignment_modality[0]]["type"] == "1D_patches" and self.preprocessors[self.alignment_modality[0]].interplation_merck:
@@ -436,7 +442,7 @@ class MultiModalDataModule(pl.LightningDataModule):
             self.dataset["train"],
             collate_fn=self.collator,
             batch_size=self.batch_size,
-            shuffle = True if not isinstance(self.dataset["train"], (IterableDataset, IterableDatasetWithLength)) else None,
+            shuffle = False, #True if not isinstance(self.dataset["train"], (IterableDataset, IterableDatasetWithLength)) else None,
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
@@ -447,19 +453,8 @@ class MultiModalDataModule(pl.LightningDataModule):
         self,
     ) -> DataLoader:
         
-        if isinstance(self.dataset["validation"], IterableDatasetWithLength):
-            selected_validation_set = self.dataset["validation"].take(min(10000, self.dataset["validation"]._length))
-            selected_validation_set = Dataset.from_generator(lambda: selected_validation_set.__iter__(), split="validation")
-        else:
-            selected_sample = np.random.choice(
-                len(self.dataset["validation"]),
-                min(10000, len(self.dataset["validation"])),
-                replace=False
-            )
-            selected_validation_set = self.dataset["validation"].select(selected_sample)
-        
         val_loader = DataLoader(
-            selected_validation_set,
+            self.dataset["validation"],
             collate_fn=self.collator,
             batch_size=self.batch_size,
             shuffle=False if not isinstance(self.dataset["validation"], (IterableDataset, IterableDatasetWithLength)) else None,
@@ -474,11 +469,7 @@ class MultiModalDataModule(pl.LightningDataModule):
         test_idx: Optional[Path] = None,
     ) -> DataLoader:
 
-
-        if isinstance(self.dataset["test"], IterableDatasetWithLength):
-            selected_test_set = self.dataset["test"].take(min(10000, self.dataset["test"]._length))
-            selected_test_set = Dataset.from_generator(lambda: selected_test_set.__iter__(), split="test")
-        else:
+        if "eval_sample" in self.data_config and self.data_config["eval_sample"]:
             if test_idx is None:
                 #Sample random 10k samples
                 selected_sample = np.random.choice(
@@ -489,15 +480,15 @@ class MultiModalDataModule(pl.LightningDataModule):
             else:
                 with test_idx.open("rb") as f:
                     selected_sample = np.load(f)
-            
             selected_test_set = self.dataset["test"].select(selected_sample)
-        
+        else:
+            selected_test_set = self.dataset["test"]
 
         test_loader = DataLoader(
             selected_test_set,
             collate_fn=self.collator,
-            batch_size=self.batch_size,
-            shuffle=False if not isinstance(self.dataset["test"], (IterableDataset, IterableDatasetWithLength)) else None,
+            batch_size=self.batch_size if self.batch_size <= 64 else 64, # to make optional for other modalities
+            shuffle=False, # if not isinstance(selected_test_set, (IterableDataset, IterableDatasetWithLength)) else None,
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
@@ -513,3 +504,350 @@ class MultiModalDataModule(pl.LightningDataModule):
             extra_columns=self.extra_columns
         )
         return data_collator
+
+class TTTMultiModalDataModule(MultiModalDataModule):
+    """Class to perform test-time tuning on the given dataset.
+    """
+    def __init__(
+        self,
+        model,
+        dataset: DatasetDict,
+        preprocessors: Dict[str, Union[AutoTokenizer, PatchPreprocessor]],
+        data_config: Dict[str, Union[str, bool, int]],
+        model_type: str,
+        batch_size: int = 128,
+        max_source_length: Optional[int] = None,
+        max_target_length: Optional[int] = None,
+        extra_columns: Optional[List[str]] = None,
+        num_workers: int = 8,
+        device: str = 'cpu',
+        reduced_val: bool = False,
+        only_faiss: bool = True,
+        path_selection: str = None,
+        similarity_criterion: str = 'embeddings',
+        nearest_neighbors: int = None,
+    ):
+        # inherit all the methods from MultiModalDataModule
+        super().__init__(dataset, preprocessors, data_config, model_type, batch_size, max_source_length, max_target_length, extra_columns)
+
+        self.model = model
+        self.device = device
+        self.num_workers = num_workers
+        self.only_faiss = only_faiss
+        self.path_selection = path_selection
+        self.similarity_criterion = similarity_criterion
+        self.nearest_neighbors = nearest_neighbors
+
+        if reduced_val:
+            if len(self.dataset["validation"]) > self.batch_size:
+                indices_val = random.sample(range(len(self.dataset["validation"])), self.batch_size) # using 1 batch
+                self.dataset["validation"] = self.dataset["validation"].select(indices_val)
+                logger.info(f'Using only {self.batch_size} samples from validation set')
+
+        # implement anyways the standard datamodule, needed to access the processed data
+        self.datamodule = MultiModalDataModule(
+            dataset=self.dataset,
+            preprocessors=self.preprocessors,
+            data_config=self.data_config,
+            model_type=self.model_type,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            extra_columns=self.extra_columns
+        )
+        
+        self.epochs = 0
+        self.d = self.model.hf_model.encoder.norm.normalized_shape[0] # Dimension of the vectors
+        self.d_fp = self.model.hf_model.align_network[2].out_features if self.similarity_criterion == "fingerprints" else self.d
+
+
+    def make_embeddings(self, dim, batches, device, save=None):
+        """Make embeddings for vectors in the test set for compression mode mean
+        """
+        embeddings = torch.empty((0, dim)).to(device)
+        for batch in iter(batches):
+            embeddings_chunk, att_mask = self.make_embeddings_datamodule(batch, save)    
+            embeddings_chunk = torch.stack([torch.mean(vec[att==1], dim=0) for vec, att in zip(embeddings_chunk, att_mask)])
+            embeddings = torch.cat((embeddings, embeddings_chunk), 0)
+        
+        return embeddings.detach().cpu()
+
+    def make_embeddings_datamodule(self, batch, save=None):
+        """Make the embeddings of the data given the model, using the dataloader (takes care of the batches automatically)
+        """
+        with torch.no_grad():
+            input_ids = {modality: input_ids.transpose(1, 0).to(self.device) for modality, input_ids in batch["encoder_input"].items()}
+            input_embeds = self.model.multimodal_embedding(input_ids)
+            attention_mask = (~batch["encoder_pad_mask"]).int().T.to(self.device)
+            embeddings = self.model.hf_model.encode(input_embeds, attention_mask)
+        
+        if save and isinstance(save, str):
+            data = pd.DataFrame()
+            data['last_hidden_state'] = embeddings.last_hidden_state.cpu().numpy().tolist()
+            data['attention_mask'] = embeddings.attention_mask.cpu().numpy().tolist()
+            with Path.open(Path(f'{self.path_selection}/{save}_embeddings_iteration_{self.epochs}.json'), 'w') as f:
+                json.dump(data.to_json(), f)
+            f.close()
+
+        return embeddings.last_hidden_state, embeddings.attention_mask
+
+    def get_fingerprints(self, loader):
+
+        embeddings = self.make_embeddings(self.d, loader, self.device)
+        fingerprints = self.model.hf_model.predict_fingerprint(embeddings=embeddings)
+        
+        del embeddings
+
+        return fingerprints
+
+class KmeansTTTMultiModalDataModule(TTTMultiModalDataModule):
+    """Class to perform K-means clustering on the test set of the given dataset, 
+    to then use only one point per cluster to perform test-time tuning.
+    """
+    def __init__(
+            self, 
+            model, 
+            dataset, 
+            preprocessors, 
+            data_config, 
+            model_type, 
+            batch_size = 128, 
+            max_source_length = None, 
+            max_target_length = None, 
+            extra_columns = None, 
+            num_workers = 8, 
+            device = 'cpu', 
+            reduced_val = False, 
+            only_faiss = True, 
+            path_selection = None, 
+            similarity_criterion = 'fingerprints', 
+            nearest_neighbors = None, 
+            n_clusters = None,
+            n_test_points = None,
+            n_train_points = None,
+            update_embeds = 10, # False or int 
+            seed = 3247
+        ):
+        
+        super().__init__(model, dataset, preprocessors, data_config, model_type, batch_size, max_source_length, max_target_length, extra_columns, num_workers, device, reduced_val, only_faiss, path_selection, similarity_criterion, nearest_neighbors)
+
+        # make embeddings (fps) train set
+        logger.info('Making embeddings train set')
+        fingerprints_train = self.get_fingerprints(self.datamodule.train_dataloader())
+        tensor = torch.nn.functional.normalize(fingerprints_train, p=2, dim=1)
+        tensor = tensor.detach().cpu()
+        self.train_tensor = tensor
+        
+        # make embeddings (fps) test points
+        logger.info('Making embeddings test set')
+        fingerprints_test = self.get_fingerprints(self.datamodule.predict_dataloader())
+        tensor = torch.nn.functional.normalize(fingerprints_test, p=2, dim=1)
+        tensor = tensor.detach().cpu()
+        self.test_tensor = tensor
+
+        # save predicted fps
+        if self.path_selection:
+            df = self.dataset['train'].to_pandas()
+            df['predicted_fingerprints'] = self.train_tensor.numpy().tolist()
+            df['predicted_fingerprints_before_norm'] = fingerprints_train.detach().cpu().numpy().tolist()
+            with Path.open(Path(f'{self.path_selection}/train_tensor_iteration_{self.epochs}.json'), 'w') as f:
+                json.dump(df.to_json(), f)
+            f.close()
+            del df
+
+            df = self.dataset['test'].to_pandas()
+            df['predicted_fingerprints'] = self.test_tensor.numpy().tolist()
+            df['predicted_fingerprints_before_norm'] = fingerprints_test.detach().cpu().numpy().tolist()
+            with Path.open(Path(f'{self.path_selection}/test_tensor_iteration_{self.epochs}.json'), 'w') as f:
+                json.dump(df.to_json(), f)
+            f.close()
+            del df
+        
+        del tensor, fingerprints_test, fingerprints_train
+        
+        # Perform k-means clustering with ncentroids and save the centroids
+        logger.info(f'Clustering the test points in {n_clusters} clusters')
+        kmeans = faiss.Kmeans(self.d_fp, n_clusters, niter=200, verbose=True, gpu=True, seed=seed)
+        kmeans.train(self.test_tensor)
+
+        # Calculate here the indices of the respective cluster for every test point
+        D, I = kmeans.index.search(self.test_tensor, 1)
+        self.I = I.reshape((len(I)))
+        self.D = D
+
+        # Get the clusters
+        dict_clusters = dict.fromkeys(self.I)
+        # Populate the dictionary
+        for i, centroid in enumerate(kmeans.centroids):
+            dict_clusters[i] = dict.fromkeys(['centroid','indices','ind_closest'], [])
+            dict_clusters[i]['centroid'] = centroid
+            # Save the index of the test points we want to use for selection
+            index = faiss.IndexFlatIP(self.d_fp)
+            index.add(self.test_tensor)
+            _, indices = index.search(np.array([centroid]), n_test_points)
+            dict_clusters[i]['ind_closest'] = indices[0]
+        # Save the indices of the test points belonging to each cluster (sequential)
+        for idx, cluster_id in enumerate(self.I):
+            dict_clusters[cluster_id]['indices'].append(idx)
+        self.clusters = dict_clusters
+
+        self.n_test_points = n_test_points
+        self.n_train_points = n_train_points if n_train_points else int(self.batch_size/n_test_points)
+        self.update_embeds = update_embeds
+
+        del kmeans
+    
+    def get_train_tensor(self):
+        return self.train_tensor
+    
+    def get_test_tensor(self):
+        return self.test_tensor
+
+    def get_centroids(self):
+        return self.centroids
+    
+    def get_clusters(self):
+        return self.dict_clusters
+    
+    def get_clusters_info(self):
+        clusters = self.get_clusters()
+
+        for cluster_id in sorted(clusters.keys()):
+            d_avg = np.mean(self.D[clusters[cluster_id]['indices']])
+            d_max = np.max(self.D[clusters[cluster_id]['indices']])
+            d_min = np.min(self.D[clusters[cluster_id]['indices']])
+            logger.info(f"Cluster {cluster_id}: {len(clusters[cluster_id]['indices'])} points\nAvg distance = {d_avg}\n Max distance = {d_max}\n Min distance = {d_min}")
+
+    def get_cluster_distances(self):
+        return self.D
+
+    def get_closest_points(self, centroid, n_points):
+        index = faiss.IndexFlatIP(self.d_fp)
+        index.add(self.test_tensor)
+        _, indices = index.search(centroid, n_points)
+
+        return self.test_tensor[indices[0]]
+
+    # overwrite only the train dataloader
+    def train_dataloader(self) -> DataLoader:
+
+        # Update embeddings
+        if self.update_embeds and self.update_embeds > 0:
+            if self.epochs > 0 and self.epochs % self.update_embeds == 0:
+
+                logger.info("Recomputing embeddings/fingerprints for the training set")
+                fingerprints_train = self.get_fingerprints(self.datamodule.train_dataloader())
+                tensor = torch.nn.functional.normalize(fingerprints_train, p=2, dim=1)
+                tensor = tensor.detach().cpu()
+                self.train_tensor = tensor
+                
+                logger.info("Recomputing embeddings/fingerprints for the test set")
+                fingerprints_test = self.get_fingerprints(self.datamodule.predict_dataloader())
+                tensor = torch.nn.functional.normalize(fingerprints_test, p=2, dim=1)
+                tensor = tensor.detach().cpu()
+                self.test_tensor = tensor
+
+                # save predicted fps
+                if self.path_selection:
+                    df = self.dataset['train'].to_pandas()
+                    df['predicted_fingerprints'] = self.train_tensor.numpy().tolist()
+                    df['predicted_fingerprints_before_norm'] = fingerprints_train.detach().cpu().numpy().tolist()
+                    with Path.open(Path(f'{self.path_selection}/train_tensor_iteration_{self.epochs}.json'), 'w') as f:
+                        json.dump(df.to_json(), f)
+                    f.close()
+                    del df
+
+                    df = self.dataset['test'].to_pandas()
+                    df['predicted_fingerprints'] = self.test_tensor.numpy().tolist()
+                    df['predicted_fingerprints_before_norm'] = fingerprints_test.detach().cpu().numpy().tolist()
+                    with Path.open(Path(f'{self.path_selection}/test_tensor_iteration_{self.epochs}.json'), 'w') as f:
+                        json.dump(df.to_json(), f)
+                    f.close()
+                    del df
+
+        id_cluster = self.epochs % len(self.clusters)
+        logger.info(f"Training model for cluster id={id_cluster}")
+        # Select the test point we want to use for selection in this cluster (we are already storing the index)
+        ind_test_points = self.clusters[id_cluster]['ind_closest']
+        test_points = self.test_tensor[ind_test_points] # in this way we update the representation consistently
+                
+        if self.similarity_criterion == 'fingerprints':
+            indices = []
+            cpu_index = faiss.IndexFlatIP(self.d_fp)  # inner product for cosine similarity
+            cpu_index.add(self.train_tensor)
+
+            # retrieval of datapoints using activeft code
+            retriever = Retriever(cpu_index, fast=False, only_faiss=self.only_faiss, also_query_opposite=True) # we're using inner product index, so negative sim values should also be considered
+            indices = []
+            time_tot_faiss = 0
+            time_tot_sift = 0
+            for test_point in test_points:
+                _, ind, _, time_retrieval = retriever.search(np.array([test_point]), N=self.n_train_points, K=self.nearest_neighbors, threads=self.num_workers)                
+                indices = np.concatenate((indices,ind), axis=None)
+                time_tot_faiss += time_retrieval.faiss
+                time_tot_sift += time_retrieval.sift
+            indices_nopad = indices[indices >= 0] # type:ignore
+            logger.info(f"Time taken for faiss selection = {time_tot_faiss}")
+            logger.info(f"Additional time taken for sift selection = {time_tot_sift}")
+        else:
+            raise ValueError(f"Selection with similarity criterion {self.similarity_criterion} not implemented.")
+
+        # memorize selected indices
+        for ind in indices:
+            self.model.set_sel_indices.add(ind)
+
+        # Save selection
+        if self.path_selection:
+            df = self.dataset['train'].select(indices_nopad).to_pandas()
+            df['predicted_fingerprints'] = self.train_tensor[indices_nopad].numpy().tolist()
+            df['index'] = indices.astype(int)
+            
+            df_test = pd.DataFrame()
+            df_test['index'] = int(ind_test_points[0])
+            df_test['predicted_fingerprints'] = test_points.numpy().tolist()
+            for k in self.data_config.keys():
+                df_test[k] = self.dataset['test'].select(ind_test_points)[k]
+            
+            with Path.open(Path(f'{self.path_selection}/sel_iteration_{self.epochs}.json'), 'w') as f:
+                json.dump(df.to_json(), f)
+            f.close()
+            del df
+
+            with Path.open(Path(f'{self.path_selection}/test_iteration_{self.epochs}.json'), 'w') as f:
+                json.dump(df_test.to_json(), f)
+            f.close()
+            del df_test
+
+        train_loader = DataLoader(
+            self.dataset["train"].select(indices_nopad),
+            collate_fn=self.collator,
+            batch_size=self.batch_size,
+            shuffle = True if not isinstance(self.dataset["train"], (IterableDataset, IterableDatasetWithLength)) else None,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=False,
+        )
+
+        self.epochs += 1
+
+        del cpu_index, retriever
+
+        return train_loader
+    
+    def predict_dataloader(
+        self,
+        test_idx: Optional[Path] = None,
+    ) -> DataLoader:
+        """It selects the points in the test set that are only part of the cluster in question."""
+
+        logger.info(f'Predicting for {len(self.dataset["test"])} test points')
+
+        test_loader = DataLoader(
+            self.dataset["test"],
+            collate_fn=self.collator,
+            batch_size=self.batch_size if self.batch_size <= 64 else 64,
+            shuffle=False if not isinstance(self.dataset["test"], (IterableDataset, IterableDatasetWithLength)) else None,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=False,
+        )
+        return test_loader
