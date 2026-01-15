@@ -1,6 +1,6 @@
 # Structure elucidation from MS/MS spectra
 
-This document contains the steps to reproduce the results in the paper [Test-Time Tuned Language Models Enable End-to-end De Novo Molecular Structure Generation from MS/MS Spectra](https://arxiv.org/abs/2510.23746).
+This document contains the steps to reproduce the results in the paper "Test-Time Tuned Language Models Enable End-to-end De Novo Molecular Structure Generation from MS/MS Spectra".
 
 <p align='center'>
   <img src='../figures/ttt-msms.png'>
