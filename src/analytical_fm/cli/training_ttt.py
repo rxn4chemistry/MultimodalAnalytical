@@ -21,10 +21,9 @@ import hydra  # type: ignore
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 import torch  # type: ignore
-import torch_incremental_pca as tip  # type: ignore
 from loguru import logger  # type: ignore
 from omegaconf import DictConfig, OmegaConf  # type: ignore
-from utils import StreamToLogger  # type: ignore
+from .utils import StreamToLogger  # type: ignore
 
 from analytical_fm.configuration import DEFAULT_SETTINGS
 from analytical_fm.data.data_utils import load_preprocessors

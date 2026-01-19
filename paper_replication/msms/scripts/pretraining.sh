@@ -12,16 +12,16 @@ export TOKENIZERS_PARALLELISM=False
 
 
 mkdir -p ${run_folder}/pt
-    python -m analytical_fm.cli.training \
-        working_dir=${run_folder} \
-        job_name=pt \
-        data_path=${data_folder} \
-        data=msms/text_fingerprint \
-        model=custom_model_align \
-        model.batch_size=16 \
-        model.lr=1e-4 \
-        trainer.epochs=60 \
-        trainer.save_checkpoints=every_5_epochs \
-        finetuning=False \
-        molecules=True
-done
+
+python -m analytical_fm.cli.training \
+    working_dir=${run_folder} \
+    job_name=pt \
+    data_path=${data_folder} \
+    data=msms/text_fingerprint \
+    model=custom_model_align \
+    model.batch_size=16 \
+    model.lr=1e-4 \
+    trainer.epochs=60 \
+    trainer.save_checkpoints=every_5_epochs \
+    finetuning=False \
+    molecules=True
