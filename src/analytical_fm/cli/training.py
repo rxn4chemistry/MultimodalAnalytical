@@ -7,7 +7,6 @@ IBM Research Licensed Internal Code
 ALL RIGHTS RESERVED
 """
 import contextlib
-import json
 import logging
 import os
 import pickle
@@ -22,7 +21,6 @@ import pandas as pd
 import torch
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from .utils import StreamToLogger  # type: ignore
 
 from analytical_fm.configuration import DEFAULT_SETTINGS
 from analytical_fm.data.data_utils import load_preprocessors
@@ -41,6 +39,8 @@ from analytical_fm.utils import (
     save_to_files,
     seed_everything,
 )
+
+from .utils import StreamToLogger  # type: ignore
 
 
 @hydra.main(version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_train")
@@ -184,7 +184,7 @@ def main(config: DictConfig):
                     model.to(device)
 
                     # Evaluation -- before training
-                    predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams)
+                    predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
                     # Rejection sampling
                     if rejection_sampling:
@@ -236,7 +236,7 @@ def main(config: DictConfig):
                 model.eval()
                 model.to(device)
 
-                predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams)
+                predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
                 # Rejection sampling
                 if rejection_sampling:

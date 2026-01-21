@@ -338,7 +338,7 @@ def build_dataset_multimodal(
 
         if not Path(data_path).is_dir():
             raise ValueError(
-                f"If given_splits used, data_path has to be a directory containing train, validation, test set as parquet files."
+                "If given_splits used, data_path has to be a directory containing train, validation, test set as parquet files."
             )
 
         if set(dataset_dict.keys()) != {"train", "validation", "test"}:

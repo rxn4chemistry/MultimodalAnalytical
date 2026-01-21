@@ -14,18 +14,14 @@ import torch
 from datasets import Dataset
 from omegaconf import DictConfig
 from rdkit import Chem, RDLogger
-from rdkit.Chem import rdMolDescriptors
+from rdkit.Chem import AllChem, rdMolDescriptors
+from rdkit.DataStructs.cDataStructs import TanimotoSimilarity
 
 from .configuration import DEFAULT_SETTINGS
 from .data.data_utils import IterableDatasetWithLength
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit import RDLogger
-from rdkit.DataStructs.cDataStructs import TanimotoSimilarity
 
 RDLogger.DisableLog('rdApp.*')
 def calculate_tanimoto(pred, truth):
@@ -151,7 +147,7 @@ def calc_sampling_metrics(samples: List[Any], targets: List[str], classes: List[
     
     return metrics
 
-def evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams):
+def evaluate(predict_class, data_config, data_module, trainer, model, n_beams):
     logger.info(f"Calculating metrics for class: {predict_class}")
     if predict_class and predict_class in data_config.keys():
         logger.info("Class is present in the dataset.")

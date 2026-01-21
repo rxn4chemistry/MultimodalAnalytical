@@ -1,15 +1,17 @@
+import json
+import random
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from loguru import logger
-import random
-import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import faiss  # type:ignore
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from activeft.sift import Retriever  # type:ignore
 from datasets import Dataset, DatasetDict, IterableDataset
+from loguru import logger
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
@@ -17,8 +19,6 @@ from ..configuration import DEFAULT_SETTINGS
 from .data_utils import IterableDatasetWithLength
 from .preprocessors import PatchPreprocessor
 
-import faiss, math # type:ignore
-from activeft.sift import Retriever # type:ignore
 
 @dataclass
 class MultiModalDataCollator:
@@ -565,7 +565,7 @@ class TTTMultiModalDataModule(MultiModalDataModule):
         """
         embeddings = torch.empty((0, dim)).to(device)
         for batch in iter(batches):
-            embeddings_chunk, att_mask = self.make_embeddings_datamodule(batch, save)    
+            embeddings_chunk, att_mask = self.make_embeddings_datamodule(batch, save)
             embeddings_chunk = torch.stack([torch.mean(vec[att==1], dim=0) for vec, att in zip(embeddings_chunk, att_mask)])
             embeddings = torch.cat((embeddings, embeddings_chunk), 0)
         
@@ -600,31 +600,31 @@ class TTTMultiModalDataModule(MultiModalDataModule):
         return fingerprints
 
 class KmeansTTTMultiModalDataModule(TTTMultiModalDataModule):
-    """Class to perform K-means clustering on the test set of the given dataset, 
+    """Class to perform K-means clustering on the test set of the given dataset,
     to then use only one point per cluster to perform test-time tuning.
     """
     def __init__(
-            self, 
-            model, 
-            dataset, 
-            preprocessors, 
-            data_config, 
-            model_type, 
-            batch_size = 128, 
-            max_source_length = None, 
-            max_target_length = None, 
-            extra_columns = None, 
-            num_workers = 8, 
-            device = 'cpu', 
-            reduced_val = False, 
-            only_faiss = True, 
-            path_selection = None, 
-            similarity_criterion = 'fingerprints', 
-            nearest_neighbors = None, 
+            self,
+            model,
+            dataset,
+            preprocessors,
+            data_config,
+            model_type,
+            batch_size = 128,
+            max_source_length = None,
+            max_target_length = None,
+            extra_columns = None,
+            num_workers = 8,
+            device = 'cpu',
+            reduced_val = False,
+            only_faiss = True,
+            path_selection = None,
+            similarity_criterion = 'fingerprints',
+            nearest_neighbors = None,
             n_clusters = None,
             n_test_points = None,
             n_train_points = None,
-            update_embeds = 10, # False or int 
+            update_embeds = 10, # False or int
             seed = 3247
         ):
         
@@ -781,7 +781,7 @@ class KmeansTTTMultiModalDataModule(TTTMultiModalDataModule):
             time_tot_faiss = 0
             time_tot_sift = 0
             for test_point in test_points:
-                _, ind, _, time_retrieval = retriever.search(np.array([test_point]), N=self.n_train_points, K=self.nearest_neighbors, threads=self.num_workers)                
+                _, ind, _, time_retrieval = retriever.search(np.array([test_point]), N=self.n_train_points, K=self.nearest_neighbors, threads=self.num_workers)
                 indices = np.concatenate((indices,ind), axis=None)
                 time_tot_faiss += time_retrieval.faiss
                 time_tot_sift += time_retrieval.sift
@@ -835,7 +835,6 @@ class KmeansTTTMultiModalDataModule(TTTMultiModalDataModule):
     
     def predict_dataloader(
         self,
-        test_idx: Optional[Path] = None,
     ) -> DataLoader:
         """It selects the points in the test set that are only part of the cluster in question."""
 

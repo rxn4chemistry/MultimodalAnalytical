@@ -12,13 +12,11 @@ import pickle
 import shutil
 import sys
 import warnings
-from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, List, TextIO, cast
+from typing import Any, Dict, TextIO, cast
 
 import hydra  # type: ignore
-import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 import torch  # type: ignore
 from loguru import logger  # type: ignore
@@ -99,7 +97,6 @@ def main(config: DictConfig):
             modality_dropout = config["modality_dropout"]
             predict_class = config["predict_class"]
 
-            classes = None
             rejection_sampling = model_config["rejection_sampling"] if "rejection_sampling" in model_config else False
             if "n_beams" not in model_config or model_config['n_beams'] is None:
                 model_config["n_beams"] = 50 if rejection_sampling else 10
@@ -241,17 +238,17 @@ def main(config: DictConfig):
                 model.eval()
                 model.to(device)
 
-                predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams) # data_module_test contains all the testset
+                predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams) # data_module_test contains all the testset
 
                 # Rejection sampling
                 if rejection_sampling:
                     predictions = reject_sample(predictions, molecules=config['molecules'])
 
-                predictions_path = save_to_files(predictions=predictions, metrics=None, config=config, n_beams=n_beams, name_file=f"after_training-")
+                predictions_path = save_to_files(predictions=predictions, metrics=None, config=config, n_beams=n_beams, name_file="after_training-")
                 logger.info(f"Predictions saved to: {predictions_path}")
 
-                metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=None, molecules=config['molecules'], logging=True)                
-                metrics_path = save_to_files(predictions=None, metrics=metrics, config=config, n_beams=n_beams, name_file=f"after_training-")
+                metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=None, molecules=config['molecules'], logging=True)
+                metrics_path = save_to_files(predictions=None, metrics=metrics, config=config, n_beams=n_beams, name_file="after_training-")
                 logger.info(f"Metrics saved to: {metrics_path}")
 
             else:

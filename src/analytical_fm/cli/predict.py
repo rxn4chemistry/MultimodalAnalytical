@@ -149,7 +149,6 @@ def main(config: DictConfig):
                 lambda: torch.distributed.get_rank() == 0 and torch.cuda.is_available()
             )
 
-            classes = None
             rejection_sampling = model_config["rejection_sampling"] if "rejection_sampling" in model_config else False
             if not model_config["n_beams"]:
                 model_config["n_beams"] = 50 if rejection_sampling else 10
@@ -175,17 +174,17 @@ def main(config: DictConfig):
             trainer = build_trainer(model_type, **config["trainer"])
 
             #  Evaluate Model
-            predictions = evaluate(predict_class, data_config, config, data_module, trainer, model, n_beams)
+            predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
             # Rejection sampling
             if rejection_sampling:
                 predictions = reject_sample(predictions, molecules=config['molecules'])
 
-            predictions_path = save_to_files(predictions=predictions, metrics=None, config=config, n_beams=n_beams, name_file=f"after_training-")
+            predictions_path = save_to_files(predictions=predictions, metrics=None, config=config, n_beams=n_beams, name_file="after_training-")
             logger.info(f"Predictions saved to: {predictions_path}")
 
-            metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=predictions['classes'], molecules=config['molecules'], logging=True)                
-            metrics_path = save_to_files(predictions=None, metrics=metrics, config=config, n_beams=n_beams, name_file=f"after_training-")    
+            metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=predictions['classes'], molecules=config['molecules'], logging=True)
+            metrics_path = save_to_files(predictions=None, metrics=metrics, config=config, n_beams=n_beams, name_file="after_training-")
             logger.info(f"Metrics saved to: {metrics_path}")
 
         except Exception:
