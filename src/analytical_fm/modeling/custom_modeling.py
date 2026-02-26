@@ -218,7 +218,7 @@ class CustomEncoder(nn.TransformerEncoder):
         self.main_input_name = "inputs_embeds"
 
     def forward( # type: ignore
-        self,  
+        self,
         inputs_embeds: torch.FloatTensor,
         attention_mask: Optional[torch.Tensor] = None,
     ) -> BaseModelOutput:
@@ -269,7 +269,7 @@ class CustomDecoder(nn.TransformerDecoder):
         self.target_modality = target_modality
 
     def forward( # type: ignore
-        self,  
+        self,
         input_ids: torch.LongTensor,
         encoder_hidden_states: torch.FloatTensor,
         encoder_attention_mask: torch.LongTensor,

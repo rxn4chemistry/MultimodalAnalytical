@@ -115,8 +115,8 @@ class GuidedFormulaProcessor(LogitsProcessor):
                 decoded_formula_list.append(rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles)))
             except:  # noqa E722
                 decoded_formula_list.append("")
-        decoded_formula = np.stack(  
-            [self.make_formula_encoding(formula) for formula in decoded_formula], axis=0 # type: ignore
+        decoded_formula = np.stack(
+            [self.make_formula_encoding(formula) for formula in decoded_formula_list], axis=0 # type: ignore
         )
 
         # If formula matches and valid smiles, set eos to 0
