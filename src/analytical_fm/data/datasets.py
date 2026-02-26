@@ -113,6 +113,9 @@ def mix_spectra(dataset: Dataset, mix_config: DictConfig, split: str, seed: int 
                 if len(combined_spectrum) != 1800: # pad the real data
                     combined_spectrum = combined_spectrum + [0] * (1800-len(combined_spectrum))
                 for i in range(n_compounds):
+                    if compounds_ratio[i] == 0:
+                        continue
+                    
                     yield {"Smiles": smiles_formula[i], "Formula": molecular_formula[i], "IR": combined_spectrum, "Additional_smiles": ",".join([smiles_formula[idx] for idx in range(n_compounds) if idx != i]), "Percentage": f"{compounds_ratio[i]}", "IR_target": spectra[i]}
 
 def split(dataset: Dataset, cv_split: int = 0, seed: int = 3245) -> DatasetDict:
@@ -247,7 +250,7 @@ def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: 
     """
 
     all_targets = dataset[target_column]
-    unique_targets = pd.unique(dataset[target_column])
+    unique_targets = np.unique(dataset[target_column])
 
     k_folds = KFold(n_splits=5, shuffle=True, random_state=seed)
     splits = list(k_folds.split(X=unique_targets))
@@ -278,6 +281,7 @@ def build_dataset_multimodal(
     num_cpu: int = 7,
     mixture_config: Optional[DictConfig] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
+
     
     if not Path(data_path).is_dir():
         raise ValueError(

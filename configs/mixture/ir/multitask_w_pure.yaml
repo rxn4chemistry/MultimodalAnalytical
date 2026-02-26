@@ -38,3 +38,11 @@ unbalanced_1_9:
   test_max_n_samples: 10000 
   parallel_samples: 16384
   normalize: True
+unbalanced_0_10:
+  n_compounds: 2
+  compounds_ratio: [0.0, 1.0]
+  train_max_n_samples: 320000000 
+  validation_max_n_samples: 10000
+  test_max_n_samples: 10000 
+  parallel_samples: 16384
+  normalize: True

@@ -151,15 +151,19 @@ class MultiModalDataCollator:
             batch_dict, return_tensors
         )
 
-
         alignment_input = None
         if len(self.alignment_modality) == 1:
-            alignment_input = torch.tensor(np.array(batch_dict[self.alignment_modality[0]]))
+            
+            if self.alignment_modality[0] not in batch_dict:
+                alignment_input = torch.zeros(len(batch_dict[list(batch_dict.keys())[0]]), 1800)
+            else:
+                alignment_input = torch.tensor(np.array(batch_dict[self.alignment_modality[0]]))
+
             if alignment_input.shape[1] < 1800:
                 alignment_input = torch.nn.functional.pad(alignment_input, (0, 1800 - alignment_input.shape[1]), "constant", 0)
 
-            if self.data_config[self.alignment_modality[0]]["type"] == "1D_patches" and self.preprocessors[self.alignment_modality[0]].interplation_merck:
-                alignment_input = torch.tensor(self.preprocessors[self.alignment_modality[0]].interpolation_merck(alignment_input), dtype=torch.float32)
+            if self.data_config[self.alignment_modality[0]]["type"] == "1D_patches" and self.preprocessors[self.alignment_modality[0]].interpolation:
+                alignment_input = torch.tensor(self.preprocessors[self.alignment_modality[0]].interpolation(alignment_input), dtype=torch.float32)
         target_tensor = self.prepare_target(batch_dict, return_tensors)
 
         # Prepare batches for BART or encoder only model
