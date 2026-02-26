@@ -13,7 +13,7 @@ logger.addHandler(logging.NullHandler())
 @dataclass
 class MSMSNumberPreprocessor:
     normalise: bool = True
-    encoding_type: str = 'linear'
+    encoding_type: str = "linear"
 
     normalisation_factors: Dict = field(init=False)
 
@@ -25,9 +25,7 @@ class MSMSNumberPreprocessor:
 
         msms_spectra = sampled_dataset[modality]
         msms_spectra = self.filter_msms_peaks(msms_spectra)
-        msms_spectra_flat = np.array(
-            [peak for spectra in msms_spectra for peak in spectra]
-        )
+        msms_spectra_flat = np.array([peak for spectra in msms_spectra for peak in spectra])
 
         self.normalisation_factors = dict()
         self.normalisation_factors["mass"] = {
@@ -39,20 +37,14 @@ class MSMSNumberPreprocessor:
             "std": msms_spectra_flat[:, 1].std(),
         }
 
-    def __call__(
-        self, msms_spectra: List[List[List[float]]]
-    ) -> Dict[str, torch.Tensor]:
+    def __call__(self, msms_spectra: List[List[List[float]]]) -> Dict[str, torch.Tensor]:
         msms_spectra = self.filter_msms_peaks(msms_spectra)
         spectra, attention_mask = self.pad_spectra(msms_spectra)
 
         return {"input_ids": spectra, "attention_mask": attention_mask}
 
-    def filter_msms_peaks(
-        self, msms_spectra: List[List[List[float]]]
-    ) -> List[List[List[float]]]:
-        msms_spectra = [
-            [peak for peak in spectra if peak[1] >= 1] for spectra in msms_spectra
-        ]
+    def filter_msms_peaks(self, msms_spectra: List[List[List[float]]]) -> List[List[List[float]]]:
+        msms_spectra = [[peak for peak in spectra if peak[1] >= 1] for spectra in msms_spectra]
         return msms_spectra
 
     def pad_spectra(
@@ -79,12 +71,10 @@ class MSMSNumberPreprocessor:
 
             padded_spectra.append(torch.concat((spectra_tensor, padding)))
             attention_masks.append(
-                torch.concat(
-                    (
-                        torch.ones(len(spectra)),
-                        torch.zeros(batch_max_len - len(spectra)),
-                    )
-                )
+                torch.concat((
+                    torch.ones(len(spectra)),
+                    torch.zeros(batch_max_len - len(spectra)),
+                ))
             )
 
         return torch.stack(padded_spectra), torch.stack(attention_masks)

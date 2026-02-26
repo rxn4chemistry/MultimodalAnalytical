@@ -39,9 +39,7 @@ class CarbonPreprocessor:
         longest_sequence = max(processed_carbon, key=len)
         self.max_sequence_length = longest_sequence.count(" ") + 15
 
-    def __call__(
-        self, carbon_nmrs: List[List[Dict[str, Union[str, float, int]]]]
-    ) -> torch.Tensor:
+    def __call__(self, carbon_nmrs: List[List[Dict[str, Union[str, float, int]]]]) -> torch.Tensor:
         processed_carbon = self.process_carbon(carbon_nmrs)
 
         tokenized_input = self.tokenizer(
@@ -54,7 +52,9 @@ class CarbonPreprocessor:
 
         # Adjust for Multitasking: Ensure All Nones are fully masked
         no_data_mask = [c_nmr == "" for c_nmr in processed_carbon]
-        tokenized_input['attention_mask'][no_data_mask] = torch.full((tokenized_input['attention_mask'].shape[-1],), 0)
+        tokenized_input["attention_mask"][no_data_mask] = torch.full(
+            (tokenized_input["attention_mask"].shape[-1],), 0
+        )
         return tokenized_input
 
     def process_carbon(
@@ -81,9 +81,7 @@ class CarbonPreprocessor:
                 )
                 if self.intensities:
                     nmr_string = (
-                        nmr_string
-                        + str(round(float(peak["intensity"]) / intensity_sum, 1))
-                        + " "
+                        nmr_string + str(round(float(peak["intensity"]) / intensity_sum, 1)) + " "
                     )
 
             processed_carbon.append(nmr_string.strip())

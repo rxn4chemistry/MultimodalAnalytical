@@ -12,15 +12,12 @@ from transformers.modeling_utils import PreTrainedModel
 
 from .utils import CustomLMOutput, Lambda, MultimodalEmbedding, sid
 
-LOSS_FACTORY: Dict[str, Callable] = {
-    "mse": nn.MSELoss(),
-    "mae": nn.L1Loss(),
-    "sid": sid
-}
+LOSS_FACTORY: Dict[str, Callable] = {"mse": nn.MSELoss(), "mae": nn.L1Loss(), "sid": sid}
 
 
 class AlignConfig:
     """Config for Encoder Alignment."""
+
     def __init__(
         self,
         align_network: str,
@@ -29,7 +26,7 @@ class AlignConfig:
         kernel_size: int,
         output_dimension: int,
         loss_lambda: float,
-        loss_function: str
+        loss_function: str,
     ):
         self.align_network = align_network
         self.hidden_dimension = hidden_dimension
@@ -38,6 +35,7 @@ class AlignConfig:
         self.output_dimension = output_dimension
         self.loss_lambda = loss_lambda
         self.loss_function = loss_function
+
 
 class CustomConfig(PretrainedConfig):
     """Config for the Custom Model."""
@@ -53,10 +51,10 @@ class CustomConfig(PretrainedConfig):
         decoder_attention_heads: int = 8,
         decoder_ffn_dim: int = 2048,
         dropout: float = 0.1,
-        activation_function: str | Callable = 'gelu',
+        activation_function: str | Callable = "gelu",
         post_layer_normalisation: bool = True,
         gated_linear: bool = False,
-        positional_encoding_type: str = 'sin_cos',
+        positional_encoding_type: str = "sin_cos",
         bos_token_id: int = 2,
         eos_token_id: int = 3,
         pad_token_id: int = 0,
@@ -64,7 +62,7 @@ class CustomConfig(PretrainedConfig):
         forced_eos_token_id: int = 3,
         guided_generation: bool = False,
         align_config: Optional[AlignConfig] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
 
         self.d_model = d_model
@@ -92,12 +90,11 @@ class CustomConfig(PretrainedConfig):
 
         self.guided_generation = guided_generation
 
-
         if align_config and not isinstance(align_config, AlignConfig):
             align_config = AlignConfig(**align_config)
 
         self.align_config = align_config
-        
+
         super().__init__(
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
@@ -111,27 +108,31 @@ class CustomConfig(PretrainedConfig):
 class CustomEncoderLayer(nn.TransformerEncoderLayer):
     """Encoder layer with option for gated feedforward."""
 
-    def __init__(self,
-                 d_model: int,
-                 encoder_attention_heads: int,
-                 encoder_ffn_dim: int,
-                 dropout: float,
-                 activation_function: str | Callable,
-                 gated_linear: bool = False,
-                 post_layer_normalisation: bool = True):
-        
-        super().__init__(d_model=d_model,
-                       nhead=encoder_attention_heads,
-                       dim_feedforward=encoder_ffn_dim,
-                       dropout=dropout,
-                       activation=activation_function,
-                       batch_first=True,
-                       norm_first=post_layer_normalisation)
+    def __init__(
+        self,
+        d_model: int,
+        encoder_attention_heads: int,
+        encoder_ffn_dim: int,
+        dropout: float,
+        activation_function: str | Callable,
+        gated_linear: bool = False,
+        post_layer_normalisation: bool = True,
+    ):
+
+        super().__init__(
+            d_model=d_model,
+            nhead=encoder_attention_heads,
+            dim_feedforward=encoder_ffn_dim,
+            dropout=dropout,
+            activation=activation_function,
+            batch_first=True,
+            norm_first=post_layer_normalisation,
+        )
 
         self.gated_linear = gated_linear
         if gated_linear:
             self.gate = nn.Linear(d_model, encoder_ffn_dim, bias=True)
-            self._ff_block = self._ff_block_gated # type: ignore
+            self._ff_block = self._ff_block_gated  # type: ignore
 
     def _ff_block_gated(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """Gated Feedforward block.
@@ -154,27 +155,31 @@ class CustomEncoderLayer(nn.TransformerEncoderLayer):
 class CustomDecoderLayer(nn.TransformerDecoderLayer):
     """Decoder layer with option for gated feedforward."""
 
-    def __init__(self,
-                 d_model: int,
-                 decoder_attention_heads: int,
-                 decoder_ffn_dim: int,
-                 dropout: float,
-                 activation_function: str | Callable,
-                 gated_linear: bool = False,
-                 post_layer_normalisation: bool = True) -> None:
-        
-        super().__init__(d_model=d_model,
-                       nhead=decoder_attention_heads,
-                       dim_feedforward=decoder_ffn_dim,
-                       dropout=dropout,
-                       activation=activation_function,
-                       batch_first=True,
-                       norm_first=post_layer_normalisation)
+    def __init__(
+        self,
+        d_model: int,
+        decoder_attention_heads: int,
+        decoder_ffn_dim: int,
+        dropout: float,
+        activation_function: str | Callable,
+        gated_linear: bool = False,
+        post_layer_normalisation: bool = True,
+    ) -> None:
+
+        super().__init__(
+            d_model=d_model,
+            nhead=decoder_attention_heads,
+            dim_feedforward=decoder_ffn_dim,
+            dropout=dropout,
+            activation=activation_function,
+            batch_first=True,
+            norm_first=post_layer_normalisation,
+        )
 
         self.gated_linear = gated_linear
         if gated_linear:
             self.gate = nn.Linear(d_model, decoder_ffn_dim, bias=True)
-            self._ff_block = self._ff_block_glu # type: ignore
+            self._ff_block = self._ff_block_glu  # type: ignore
 
     def _ff_block_glu(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """Gated Feedforward block.
@@ -197,11 +202,12 @@ class CustomDecoderLayer(nn.TransformerDecoderLayer):
 class CustomEncoder(nn.TransformerEncoder):
     """Custom Transformer to ensure compatability with HuggingFace."""
 
-    def __init__(self,
-                 encoder_layer: nn.TransformerEncoderLayer,
-                 n_layers: int,
-                 norm: Optional[nn.LayerNorm] = None
-                 ) -> None:
+    def __init__(
+        self,
+        encoder_layer: nn.TransformerEncoderLayer,
+        n_layers: int,
+        norm: Optional[nn.LayerNorm] = None,
+    ) -> None:
         """
         Args:
             encoder_layer: The type of layer to use in the encoder
@@ -211,9 +217,10 @@ class CustomEncoder(nn.TransformerEncoder):
         super().__init__(encoder_layer, n_layers, norm)
         self.main_input_name = "inputs_embeds"
 
-    def forward(self, # type: ignore
-                inputs_embeds: torch.FloatTensor,
-                attention_mask: Optional[torch.Tensor] = None,
+    def forward( # type: ignore
+        self,  
+        inputs_embeds: torch.FloatTensor,
+        attention_mask: Optional[torch.Tensor] = None,
     ) -> BaseModelOutput:
         """Forward. Converts input from HF into a form compatible w. torch Transformer.
         Args:
@@ -222,29 +229,31 @@ class CustomEncoder(nn.TransformerEncoder):
         Returns:
             BaseModelOutput: Output of the transformer containing the last hidden state and attention mask
         """
-        
+
         if isinstance(attention_mask, torch.Tensor):
             src_key_padding_mask = ~attention_mask.clone().bool()
         else:
             src_key_padding_mask = torch.full((inputs_embeds.shape[:1]), False)
-        
+
         output = super().forward(inputs_embeds, src_key_padding_mask=src_key_padding_mask)
 
         output_dict = BaseModelOutput(last_hidden_state=output)
-        output_dict['attention_mask'] = attention_mask
+        output_dict["attention_mask"] = attention_mask
 
         return output_dict
-    
+
+
 class CustomDecoder(nn.TransformerDecoder):
     """Custom Transformer to ensure compatability with HuggingFace."""
 
-    def __init__(self,
-                 decoder_layer: nn.TransformerDecoderLayer,
-                 n_layers: int,
-                 embedding_layer: MultimodalEmbedding,
-                 norm: Optional[nn.LayerNorm] = None,
-                 target_modality: Optional[str] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        decoder_layer: nn.TransformerDecoderLayer,
+        n_layers: int,
+        embedding_layer: MultimodalEmbedding,
+        norm: Optional[nn.LayerNorm] = None,
+        target_modality: Optional[str] = None,
+    ) -> None:
         """
         Args:
             decoder_layer: The type of layer to use in the encoder
@@ -253,26 +262,26 @@ class CustomDecoder(nn.TransformerDecoder):
             norm: LayerNorm to be used after the encoder
             target_modality: Name of the target modality
         """
-        
+
         super().__init__(decoder_layer, n_layers, norm)
-        
+
         self.embedding = embedding_layer
         self.target_modality = target_modality
 
-
-    def forward(self, # type: ignore
-                input_ids: torch.LongTensor,
-                encoder_hidden_states: torch.FloatTensor,
-                encoder_attention_mask: torch.LongTensor,
-                attention_mask: Optional[torch.Tensor] = None,
-                head_mask: Optional[torch.Tensor] = None, # noqa: ARG002
-                cross_attn_head_mask: Optional[torch.Tensor] = None, # noqa: ARG002
-                past_key_values: Optional[List[torch.FloatTensor]] = None, # noqa: ARG002
-                inputs_embeds: Optional[torch.FloatTensor] = None, # noqa: ARG002
-                use_cache: Optional[bool] = None, # noqa: ARG002
-                output_attentions: Optional[bool] = None, # noqa: ARG002
-                output_hidden_states: Optional[bool] = None, # noqa: ARG002
-                return_dict: Optional[bool] = None, # noqa: ARG002
+    def forward( # type: ignore
+        self,  
+        input_ids: torch.LongTensor,
+        encoder_hidden_states: torch.FloatTensor,
+        encoder_attention_mask: torch.LongTensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,  # noqa: ARG002
+        cross_attn_head_mask: Optional[torch.Tensor] = None,  # noqa: ARG002
+        past_key_values: Optional[List[torch.FloatTensor]] = None,  # noqa: ARG002
+        inputs_embeds: Optional[torch.FloatTensor] = None,  # noqa: ARG002
+        use_cache: Optional[bool] = None,  # noqa: ARG002
+        output_attentions: Optional[bool] = None,  # noqa: ARG002
+        output_hidden_states: Optional[bool] = None,  # noqa: ARG002
+        return_dict: Optional[bool] = None,  # noqa: ARG002
     ) -> BaseModelOutputWithPastAndCrossAttentions:
         """Forward. Converts input from HF into a form compatible w. torch Transformer.
         Args:
@@ -280,23 +289,25 @@ class CustomDecoder(nn.TransformerDecoder):
             encoder_hidden_states: Encoder output
             encoder_attention_mask: Encoder attention mask
             attention_mask: Decoder Attention mask
-            
+
             All others are to ensure compatability with HF but are not used.
-        
+
         Returns:
             BaseModelOutputWithPastAndCrossAttentions: Contains encoder output
         """
-        
+
         encoder_attention_mask_bool = ~encoder_attention_mask.bool()
 
         if isinstance(attention_mask, torch.Tensor):
             attention_mask_bool = ~attention_mask.bool()
         else:
             attention_mask_bool = torch.full(input_ids.shape, False, device=input_ids.device)
-        
+
         decoder_embeds = self.embedding({self.target_modality: input_ids})
         seq_len = input_ids.shape[1]
-        tgt_mask = nn.Transformer.generate_square_subsequent_mask(seq_len, device=decoder_embeds.device)
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(
+            seq_len, device=decoder_embeds.device
+        )
 
         decoder_output = super().forward(
             decoder_embeds,
@@ -309,16 +320,16 @@ class CustomDecoder(nn.TransformerDecoder):
         return BaseModelOutputWithPastAndCrossAttentions(last_hidden_state=decoder_output)
 
 
-
 class CustomModel(PreTrainedModel, GenerationMixin):
     """Custom Model makes torch Encoder/Decoder compatible with HF Pretrained model."""
 
-    def __init__(self,
-                 target_modality,
-                 target_tokenizer,
-                 config: CustomConfig,
-                 multimodal_embedding_layer: MultimodalEmbedding,
-                 ):
+    def __init__(
+        self,
+        target_modality,
+        target_tokenizer,
+        config: CustomConfig,
+        multimodal_embedding_layer: MultimodalEmbedding,
+    ):
         """
         Args:
             target_modality: Name of the target modality
@@ -326,7 +337,7 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             config: Model config
             multimodal_embedding_layer: Embedding layer
         """
-        
+
         super().__init__(config)
 
         self.target_modality = target_modality
@@ -334,16 +345,18 @@ class CustomModel(PreTrainedModel, GenerationMixin):
 
         # Embedding
         self.embedding = multimodal_embedding_layer
-        
+
         # Encoder
         enc_norm = nn.LayerNorm(config.d_model)
-        enc_layer = CustomEncoderLayer(config.d_model,
-                                       config.encoder_attention_heads,
-                                       config.encoder_ffn_dim,
-                                       config.dropout,
-                                       config.activation_function,
-                                       config.gated_linear,
-                                       config.post_layer_normalisation)
+        enc_layer = CustomEncoderLayer(
+            config.d_model,
+            config.encoder_attention_heads,
+            config.encoder_ffn_dim,
+            config.dropout,
+            config.activation_function,
+            config.gated_linear,
+            config.post_layer_normalisation,
+        )
         self.encoder = CustomEncoder(enc_layer, config.encoder_layers, norm=enc_norm)
 
         # align the encoder mixture representation to the target ir
@@ -351,59 +364,55 @@ class CustomModel(PreTrainedModel, GenerationMixin):
         if config.align_config:
             if config.align_config.align_network == "convolutional":
                 self.align_network = nn.Sequential(
-                    nn.Linear(
-                        config.d_model,
-                        config.align_config.hidden_dimension
-                    ),
+                    nn.Linear(config.d_model, config.align_config.hidden_dimension),
                     nn.ReLU(),
                     nn.Linear(
-                        config.align_config.hidden_dimension,
-                        config.align_config.hidden_dimension
+                        config.align_config.hidden_dimension, config.align_config.hidden_dimension
                     ),
                     Lambda(lambda x: x.unsqueeze(-1)),
                     nn.Conv1d(
                         in_channels=config.align_config.hidden_dimension,
                         out_channels=config.align_config.conv_channels,
                         kernel_size=config.align_config.kernel_size,
-                        padding=config.align_config.kernel_size // 2
+                        padding=config.align_config.kernel_size // 2,
                     ),
                     nn.ReLU(),
                     nn.Conv1d(
                         in_channels=config.align_config.conv_channels,
                         out_channels=config.align_config.output_dimension,
-                        kernel_size=1
+                        kernel_size=1,
                     ),
                     nn.Sigmoid(),
                     Lambda(lambda x: x.squeeze(-1)),
                 )
             elif config.align_config.align_network == "mlp":
                 self.align_network = nn.Sequential(
-                    nn.Linear(
-                        config.d_model,
-                        config.align_config.hidden_dimension
-                    ),
+                    nn.Linear(config.d_model, config.align_config.hidden_dimension),
                     nn.ReLU(),
                     nn.Linear(
-                        config.align_config.hidden_dimension,
-                        config.align_config.output_dimension
+                        config.align_config.hidden_dimension, config.align_config.output_dimension
                     ),
-                    nn.Sigmoid()
+                    nn.Sigmoid(),
                 )
 
         # Decoder
         dec_norm = nn.LayerNorm(config.d_model)
-        dec_layer = CustomDecoderLayer(config.d_model,
-                                       config.decoder_attention_heads,
-                                       config.decoder_ffn_dim,
-                                       config.dropout,
-                                       config.activation_function,
-                                       config.gated_linear,
-                                       config.post_layer_normalisation)
-        self.decoder = CustomDecoder(dec_layer,
-                                     config.decoder_layers,
-                                     norm=dec_norm,
-                                     target_modality=self.target_modality,
-                                     embedding_layer=self.embedding)
+        dec_layer = CustomDecoderLayer(
+            config.d_model,
+            config.decoder_attention_heads,
+            config.decoder_ffn_dim,
+            config.dropout,
+            config.activation_function,
+            config.gated_linear,
+            config.post_layer_normalisation,
+        )
+        self.decoder = CustomDecoder(
+            dec_layer,
+            config.decoder_layers,
+            norm=dec_norm,
+            target_modality=self.target_modality,
+            embedding_layer=self.embedding,
+        )
 
         # LM Head
         self.token_ff = nn.Linear(config.d_model, self.decoder_vocab_size)
@@ -416,11 +425,11 @@ class CustomModel(PreTrainedModel, GenerationMixin):
         decoder_input_ids: Optional[torch.Tensor] = None,
         decoder_attention_mask: Optional[torch.LongTensor] = None,
         labels: Optional[torch.LongTensor] = None,
-        use_cache: Optional[bool] = False, # noqa: ARG002
-        return_dict: Optional[bool] = False, # noqa: ARG002
-        encoder_align_target: Optional[torch.Tensor] = None
+        use_cache: Optional[bool] = False,  # noqa: ARG002
+        return_dict: Optional[bool] = False,  # noqa: ARG002
+        encoder_align_target: Optional[torch.Tensor] = None,
     ) -> CustomLMOutput:
-        """ Forward. Converts input from HF into a form compatible w. torch Transformer.
+        """Forward. Converts input from HF into a form compatible w. torch Transformer.
         Args:
             inputs_embeds: Encoder input embeddings
             attention_mask: Encoder attention mask
@@ -428,9 +437,9 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             decoder_input_ids: Input IDs for the decoder
             decoder_attention_mask: Decoder Attention mask
             labels: Labels for computing loss
-            
+
             All others are to ensure compatability with HF but are not used.
-        
+
         Returns:
             CustomLMOutput: Contains total_loss, transformers loss and alignment loss when aligning the encoder, logits and encoder/decoder output
         """
@@ -447,51 +456,53 @@ class CustomModel(PreTrainedModel, GenerationMixin):
             try:
                 align_loss_function = LOSS_FACTORY[self.config.align_config.loss_function]
             except Exception as e:
-                raise ValueError(f"Loss function {self.config.align_config.loss_function} not supported for alignment!{e}")
+                raise ValueError(
+                    f"Loss function {self.config.align_config.loss_function} not supported for alignment!{e}"
+                )
             if isinstance(attention_mask, torch.Tensor):
                 mask = attention_mask.unsqueeze(-1)
             else:
-                hidden_state = encoder_outputs['last_hidden_state']
-                mask = torch.ones(hidden_state.size()[:-1], device=hidden_state.device).unsqueeze(-1)
-                
+                hidden_state = encoder_outputs["last_hidden_state"]
+                mask = torch.ones(hidden_state.size()[:-1], device=hidden_state.device).unsqueeze(
+                    -1
+                )
+
             num_unmasked = mask.sum(dim=1)
-            align_input = (encoder_outputs['last_hidden_state'] * mask).sum(dim=1) / num_unmasked
+            align_input = (encoder_outputs["last_hidden_state"] * mask).sum(dim=1) / num_unmasked
             pred = self.align_network(align_input)
             target = encoder_align_target
-            align_loss = align_loss_function(pred , target)
+            align_loss = align_loss_function(pred, target)
             align_loss_lambda = self.config.align_config.loss_lambda
-
 
         # Decode
         decoder_output = self.decoder(
-            input_ids = decoder_input_ids,
-            attention_mask = decoder_attention_mask,
-            encoder_hidden_states = encoder_outputs['last_hidden_state'],
-            encoder_attention_mask = attention_mask,
+            input_ids=decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            encoder_hidden_states=encoder_outputs["last_hidden_state"],
+            encoder_attention_mask=attention_mask,
         )
 
         # Token classification
-        logits = self.token_ff(decoder_output['last_hidden_state'])
+        logits = self.token_ff(decoder_output["last_hidden_state"])
 
         if labels is not None:
-            labels = labels.to(logits.device) # type: ignore
+            labels = labels.to(logits.device)  # type: ignore
             loss_fct = nn.CrossEntropyLoss()
-            masked_lm_loss = loss_fct(logits.view(-1, self.decoder_vocab_size), labels.view(-1)) # type: ignore
-            
+            masked_lm_loss = loss_fct(logits.view(-1, self.decoder_vocab_size), labels.view(-1))  # type: ignore
+
             total_loss = masked_lm_loss + align_loss_lambda * align_loss
-            loss_dict={
-                "model_only_loss" : masked_lm_loss,
-                "alignment_loss": align_loss  if self.align_network else None
+            loss_dict = {
+                "model_only_loss": masked_lm_loss,
+                "alignment_loss": align_loss if self.align_network else None,
             }
         else:
             total_loss = None
             loss_dict = None
 
-            
         return CustomLMOutput(
             loss=total_loss,
             logits=logits,
             decoder_hidden_states=decoder_output,
-            encoder_hidden_states=encoder_outputs['last_hidden_state'],
-            loss_dict=loss_dict
+            encoder_hidden_states=encoder_outputs["last_hidden_state"],
+            loss_dict=loss_dict,
         )

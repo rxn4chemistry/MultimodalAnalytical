@@ -25,7 +25,7 @@ class MSMSTextPreprocessor:
 
         msms_spectra = sampled_dataset[modality]
         processed_msms = self.process_msms(msms_spectra)
-        
+
         longest_sequence = max(processed_msms, key=len)
         self.max_sequence_length = longest_sequence.count(" ") + 15
 
@@ -36,7 +36,7 @@ class MSMSTextPreprocessor:
             max_length=self.max_sequence_length,
         )
 
-        logging.info(f'Set max_sequence_length to {self.max_sequence_length}')
+        logging.info(f"Set max_sequence_length to {self.max_sequence_length}")
 
     def __call__(self, msms_spectra: List[List[List[float]]]) -> torch.Tensor:
         processed_msms = self.process_msms(msms_spectra)

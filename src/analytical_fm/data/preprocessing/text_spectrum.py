@@ -142,15 +142,11 @@ class TextSpectrumPreprocessor:
 
         return processed_formulae
 
-    def process_spectra(
-        self, spectra: np.ndarray
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    def process_spectra(self, spectra: np.ndarray) -> Tuple[List[str], List[np.ndarray]]:
         processed_spectra_x, indices = self.process_spectra_x(spectra)
         return self.process_spectra_y(processed_spectra_x), indices
 
-    def process_spectra_x(
-        self, spectra: np.ndarray
-    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    def process_spectra_x(self, spectra: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         processed_spectra_x = list()
         indices = list()
         for spectrum in spectra:
@@ -160,13 +156,9 @@ class TextSpectrumPreprocessor:
             if self.spectrum_to_text_x == "no_action":
                 processed_spectrum_x = spectrum
             elif self.spectrum_to_text_x == "whole_spectrum":
-                processed_spectrum_x = self._process_spectrum_x_fixed(
-                    spectrum, x_window="whole"
-                )
+                processed_spectrum_x = self._process_spectrum_x_fixed(spectrum, x_window="whole")
             elif self.spectrum_to_text_x == "window":
-                processed_spectrum_x = self._process_spectrum_x_fixed(
-                    spectrum, x_window="merged"
-                )
+                processed_spectrum_x = self._process_spectrum_x_fixed(spectrum, x_window="merged")
             elif self.spectrum_to_text_x == "variance":
                 processed_spectrum_x = self._process_spectrum_x_variance(spectrum)
             elif self.spectrum_to_text_x == "threshold" and isinstance(
@@ -202,21 +194,13 @@ class TextSpectrumPreprocessor:
                     processed_spectrum_x, self.spectrum_tokens_y
                 )
             elif self.spectrum_to_text_y == "frequency_based_clustering":
-                processed_spectrum_xy = self._process_spectrum_y_frequency(
-                    processed_spectrum_x
-                )
+                processed_spectrum_xy = self._process_spectrum_y_frequency(processed_spectrum_x)
             elif self.spectrum_to_text_y == "k_means_clustering":
-                processed_spectrum_xy = self._process_spectrum_y_k_mean(
-                    processed_spectrum_x
-                )
+                processed_spectrum_xy = self._process_spectrum_y_k_mean(processed_spectrum_x)
             elif self.spectrum_to_text_y == "density_based_clustering":
-                processed_spectrum_xy = self._process_spectrum_y_density(
-                    processed_spectrum_x
-                )
+                processed_spectrum_xy = self._process_spectrum_y_density(processed_spectrum_x)
             elif self.spectrum_to_text_y == "numerical_encoding":
-                processed_spectrum_xy = self._process_spectrum_y_numerical(
-                    processed_spectrum_x
-                )
+                processed_spectrum_xy = self._process_spectrum_y_numerical(processed_spectrum_x)
             else:
                 raise ValueError(
                     f"Processing {self.spectrum_to_text_y} not implemented. Choose from integer, frequency_based_clustering, k_means_clustering or density_based_clustering."
@@ -228,16 +212,12 @@ class TextSpectrumPreprocessor:
 
         return processed_string_spectra
 
-    def initialise_x_processors(
-        self, spectra: np.ndarray, sequence_length: int
-    ) -> None:
+    def initialise_x_processors(self, spectra: np.ndarray, sequence_length: int) -> None:
         if self.spectrum_to_text_x == "variance":
             # Select the indexes with the highest variance and feed only them into the model
             variance = spectra.var(0)
             top_variance_index = np.sort(np.argsort(variance)[-sequence_length:])
-            self.processing_parameters["variance"] = {
-                "top_variance_index": top_variance_index
-            }
+            self.processing_parameters["variance"] = {"top_variance_index": top_variance_index}
 
     def _process_spectrum_x_fixed(
         self,
@@ -255,12 +235,10 @@ class TextSpectrumPreprocessor:
         elif x_window == "merged":
             orig_x = np.arange(0, 3980, 2)
             resolution = (2000 - 400 + 500) / self.spectrum_tokens_x
-            new_x = np.concatenate(
-                [
-                    np.arange(400, 2000, resolution),
-                    np.arange(2800, 3300 - resolution, resolution),
-                ]
-            )
+            new_x = np.concatenate([
+                np.arange(400, 2000, resolution),
+                np.arange(2800, 3300 - resolution, resolution),
+            ])
         elif x_window == "run_length_encoding":
             new_x = np.linspace(0, len(spectrum) - 2, self.spectrum_tokens_x * 2)
         else:
@@ -295,7 +273,7 @@ class TextSpectrumPreprocessor:
             mask = spectrum > threshold
 
             thresholded_spectrum = spectrum[mask]
-            indices_spectrum = np.argwhere(mask).flatten()
+            indices_spectrum = np.argwhere(mask).flatten() # type: ignore
 
             # Pad thresholded spectrum if necessary
             if len(thresholded_spectrum) < self.spectrum_tokens_x:
@@ -312,9 +290,7 @@ class TextSpectrumPreprocessor:
 
         return thresholded_spectrum, indices_spectrum
 
-    def initialise_y_processors(
-        self, spectra: List[np.ndarray], vocab_size_y: int
-    ) -> None:
+    def initialise_y_processors(self, spectra: List[np.ndarray], vocab_size_y: int) -> None:
         indices = np.arange(0, len(spectra), 1)
         chosen_indices = np.random.choice(
             indices, size=min(len(spectra), DEFAULT_SETTINGS.default_samples), replace=False
@@ -334,9 +310,7 @@ class TextSpectrumPreprocessor:
                 flat_spectra = np.around(flat_spectra, 6)
                 flat_spectra = np.unique(flat_spectra)
 
-            _, bins = pd.qcut(
-                flat_spectra, vocab_size_y, retbins=True, duplicates="drop"
-            )
+            _, bins = pd.qcut(flat_spectra, vocab_size_y, retbins=True, duplicates="drop")
             labels = [f"freq_{i}" for i in range(1, vocab_size_y + 1)]
             self.processing_parameters["frequency"] = {"bins": bins, "labels": labels}
 
@@ -358,9 +332,7 @@ class TextSpectrumPreprocessor:
     ) -> np.ndarray:
         normalised_spectrum = spectrum / max(spectrum) * spectrum_tokens_y
         normalised_spectrum = np.rint(normalised_spectrum)
-        normalised_spectrum = np.clip(normalised_spectrum, 0, spectrum_tokens_y).astype(
-            int
-        )
+        normalised_spectrum = np.clip(normalised_spectrum, 0, spectrum_tokens_y).astype(int)
         return normalised_spectrum
 
     def _process_spectrum_y_frequency(self, spectrum: np.ndarray) -> np.ndarray:
@@ -371,9 +343,7 @@ class TextSpectrumPreprocessor:
         )
         processed_spectrum = [
             self.processing_parameters["frequency"]["labels"][i - 1]
-            for i in np.digitize(
-                spectrum, self.processing_parameters["frequency"]["bins"]
-            )
+            for i in np.digitize(spectrum, self.processing_parameters["frequency"]["bins"])
         ]
 
         return np.array(processed_spectrum)
@@ -431,8 +401,7 @@ class TextSpectrumPreprocessor:
         # Add end padding
         sequence_length = tokenized_input["input_ids"].shape[-1]
         end_padding = [
-            np.ones((sequence_length - len(pad_spectrum)))
-            for pad_spectrum in padded_spectra
+            np.ones((sequence_length - len(pad_spectrum))) for pad_spectrum in padded_spectra
         ]
 
         padded_spectra = [
@@ -448,7 +417,6 @@ class TextSpectrumPreprocessor:
 
 @dataclass
 class RunLengthEncodingPreprocessor(TextSpectrumPreprocessor):
-
     def initialise(
         self,
         sampled_dataset: Dataset,
@@ -507,9 +475,7 @@ class RunLengthEncodingPreprocessor(TextSpectrumPreprocessor):
     def get_run_length_encoding(self, spectra: List[str]) -> List[str]:
         string_spectra = list()
         for spectrum in spectra:
-            run_lengths = [
-                (k, sum(1 for i in g)) for k, g in groupby(spectrum.split(" "))
-            ]
+            run_lengths = [(k, sum(1 for i in g)) for k, g in groupby(spectrum.split(" "))]
 
             string_spectrum = ""
             for value, n in run_lengths:
@@ -520,7 +486,6 @@ class RunLengthEncodingPreprocessor(TextSpectrumPreprocessor):
 
 @dataclass
 class PeakPositionalEncodingPreprocessor(TextSpectrumPreprocessor):
-
     def initialise(
         self,
         sampled_dataset: Dataset,
@@ -568,46 +533,40 @@ class PeakPositionalEncodingPreprocessor(TextSpectrumPreprocessor):
             indices = [row + 1 for row in indices]
 
             max_spectra_len = (
-                2 * self.spectrum_tokens_x
-                if self.modality_type == "ir"
-                else len(spectra[0])
+                2 * self.spectrum_tokens_x if self.modality_type == "ir" else len(spectra[0])
             )
 
-            token_indices_np = np.array(
-                [
-                    np.append(
-                        np.append([0], row),
-                        np.arange(
-                            max_spectra_len + 1,
-                            max_spectra_len + (self.max_sequence_length - len(row)),
-                        ),
-                    )
-                    for row in indices
-                ]
-            )
+            token_indices_np = np.array([
+                np.append(
+                    np.append([0], row),
+                    np.arange(
+                        max_spectra_len + 1,
+                        max_spectra_len + (self.max_sequence_length - len(row)),
+                    ),
+                )
+                for row in indices
+            ])
             token_indices = token_indices_np.tolist()
 
         elif self.spectrum_to_text_x == "variance":
-            token_indices = self.processing_parameters["variance"][
-                "top_variance_index"
-            ].tolist()
+            token_indices = self.processing_parameters["variance"]["top_variance_index"].tolist()
 
-            token_indices.insert(0, min(token_indices) - 1) # type: ignore
+            token_indices.insert(0, min(token_indices) - 1)  # type: ignore
 
             end_indices = list(
                 range(
-                    max(token_indices) + 1, # type: ignore
-                    max(token_indices) # type: ignore
-                    + (self.max_sequence_length - len(token_indices)) # type: ignore
+                    max(token_indices) + 1,  # type: ignore
+                    max(token_indices)  # type: ignore
+                    + (self.max_sequence_length - len(token_indices))  # type: ignore
                     + 1,
                     1,
                 )
             )
-            token_indices.extend(end_indices) # type: ignore
+            token_indices.extend(end_indices)  # type: ignore
 
             # Shape to batch_size * sequence_length
             batch_size = len(spectra)
-            token_indices = [token_indices.copy() for _ in range(batch_size)] # type: ignore
+            token_indices = [token_indices.copy() for _ in range(batch_size)]  # type: ignore
 
         tokenized_input["indices"] = token_indices
 

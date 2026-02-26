@@ -5,11 +5,11 @@ from torch import nn
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
 
-def kl_div(p, q, reduction: Optional[str]=None, eps: float = 1e-16):
+def kl_div(p, q, reduction: Optional[str] = None, eps: float = 1e-16):
     q = q.clamp(min=eps)
     p = p.clamp(min=eps)
 
-    kl = (p * (p / q).log())
+    kl = p * (p / q).log()
     if reduction == "batchmean":
         return kl.sum() / p.shape[0]
     elif reduction == "sum":
@@ -17,11 +17,14 @@ def kl_div(p, q, reduction: Optional[str]=None, eps: float = 1e-16):
     elif not reduction:
         return kl.sum(dim=-1)
 
+
 def sid(x: torch.Tensor, y: torch.Tensor):
-    return kl_div(x,y, reduction="batchmean") + kl_div(y,x, reduction="batchmean")
+    return kl_div(x, y, reduction="batchmean") + kl_div(y, x, reduction="batchmean")
+
 
 class CustomLMOutput(Seq2SeqLMOutput):
     """Augment Seq2SeqLMOutput with single losses"""
+
     def __init__(self, loss_dict: Optional[Dict[str, float]], **kwargs):
         super(CustomLMOutput, self).__init__(**kwargs)
         self.loss_dict = loss_dict
@@ -29,18 +32,26 @@ class CustomLMOutput(Seq2SeqLMOutput):
 
 class Lambda(nn.Module):
     """Lambda modiule to use custom functions in nn.Sequential."""
+
     def __init__(self, func):
         super(Lambda, self).__init__()
         self.func = func
 
     def forward(self, x):
         return self.func(x)
-    
+
+
 class MultimodalEmbedding(nn.Module):
     """Multimodal Embedding Layer"""
 
     def __init__(
-        self, data_config: Dict[str, Any], d_model: int, embedding_norm: bool, do_positional_encodings: bool = False, positional_encodings_type: str = "sin_cos", max_seq_len: int = 1024
+        self,
+        data_config: Dict[str, Any],
+        d_model: int,
+        embedding_norm: bool,
+        do_positional_encodings: bool = False,
+        positional_encodings_type: str = "sin_cos",
+        max_seq_len: int = 1024,
     ) -> None:
         """Init.
         Args:
@@ -60,19 +71,17 @@ class MultimodalEmbedding(nn.Module):
         self.embedding_norm_dict = nn.ModuleDict()
 
         for modality, modality_config in self.data_config.items():
-            self.embedding_layer_dict[modality] = self._create_embedding(
-                modality_config
-            )
+            self.embedding_layer_dict[modality] = self._create_embedding(modality_config)
             # Add Layer normalisation
             if self.embedding_norm:
                 self.embedding_norm_dict[modality] = nn.LayerNorm(self.d_model)
 
         if self.do_positional_encodings:
-            self.positional_encodings = POS_ENC_REGISTRY[positional_encodings_type](d_model, self.max_seq_len)
+            self.positional_encodings = POS_ENC_REGISTRY[positional_encodings_type](
+                d_model, self.max_seq_len
+            )
 
-    def _create_embedding(
-        self, modality_config: Dict[str, Any]
-    ) -> Union[nn.Embedding, nn.Linear]:
+    def _create_embedding(self, modality_config: Dict[str, Any]) -> Union[nn.Embedding, nn.Linear]:
         """Create Embedding layers. Replace with Registry at some point.
         Args:
             modality_config: Config specifying the parameters for the embedding
@@ -96,7 +105,6 @@ class MultimodalEmbedding(nn.Module):
                 padding_idx=modality_config["pad_token_id"],
             )
         elif modality_config["type"] in ["1D_patches", "msms_number"]:
-
             if modality_config["type"] == "msms_number":
                 patch_size = 2
             else:
@@ -111,29 +119,23 @@ class MultimodalEmbedding(nn.Module):
             if encoding_type == "linear":
                 embedding_layer = nn.Linear(patch_size, self.d_model)  # type: ignore[attr-defined]
             elif encoding_type == "linear_2_layer":
-                embedding_layer = nn.Sequential(
-                    *[  # type: ignore
-                        nn.Linear(patch_size, self.d_model // 2),  # type: ignore[attr-defined]
-                        nn.ReLU(),
-                        nn.Linear(self.d_model // 2, self.d_model),  # type: ignore[attr-defined]
-                    ]
-                )
+                embedding_layer = nn.Sequential(*[  # type: ignore
+                    nn.Linear(patch_size, self.d_model // 2),  # type: ignore[attr-defined]
+                    nn.ReLU(),
+                    nn.Linear(self.d_model // 2, self.d_model),  # type: ignore[attr-defined]
+                ])
             elif encoding_type == "linear_3_layer":
-                embedding_layer = nn.Sequential(
-                    *[  # type: ignore
-                        nn.Linear(patch_size, self.d_model // 3),  # type: ignore[attr-defined]
-                        nn.ReLU(),
-                        nn.Linear(self.d_model // 3, 2 * (self.d_model // 3)),  # type: ignore[attr-defined]
-                        nn.ReLU(),
-                        nn.Linear(2 * (self.d_model // 3), self.d_model),  # type: ignore[attr-defined]
-                    ]
-                )
+                embedding_layer = nn.Sequential(*[  # type: ignore
+                    nn.Linear(patch_size, self.d_model // 3),  # type: ignore[attr-defined]
+                    nn.ReLU(),
+                    nn.Linear(self.d_model // 3, 2 * (self.d_model // 3)),  # type: ignore[attr-defined]
+                    nn.ReLU(),
+                    nn.Linear(2 * (self.d_model // 3), self.d_model),  # type: ignore[attr-defined]
+                ])
             else:
                 raise NotImplementedError
         else:
-            raise NotImplementedError(
-                f'Unknown modality type: {modality_config["type"]}'
-            )
+            raise NotImplementedError(f"Unknown modality type: {modality_config['type']}")
 
         return embedding_layer
 
@@ -144,13 +146,15 @@ class MultimodalEmbedding(nn.Module):
         Return:
             embedding: torch.Tensor
         """
-        
+
         embedding = list()
 
         for modality, modality_input in token_ids.items():
             # Embed
             if isinstance(modality_input, dict):  # XVal
-                modality_embedding = self.embedding_layer_dict[modality](modality_input["tokenized_input"])  # type: ignore[attr-defined]
+                modality_embedding = self.embedding_layer_dict[modality](
+                    modality_input["tokenized_input"]
+                )  # type: ignore[attr-defined]
                 modality_embedding = modality_embedding * modality_input[
                     "numerical_values"
                 ].unsqueeze(-1)
@@ -206,7 +210,7 @@ class SincCosPositionalEncoding(nn.Module):
         self.max_seq_len = max_seq_len
         self.register_buffer("pos_enc", self._positional_encs())
 
-    def forward(self, inputs: torch.Tensor, *args) -> torch.Tensor: # noqa: ARG002
+    def forward(self, inputs: torch.Tensor, *args) -> torch.Tensor:  # noqa: ARG002
         """Given an input returns a sinusoidal positional encoding.
         Args:
             indices: Batch_size x Seq_len Contains indices of the positional encodings to sample
@@ -214,11 +218,10 @@ class SincCosPositionalEncoding(nn.Module):
             torch.Tensor: sinusoidal positional embedding
         """
 
-
         batch_size, seq_len = inputs.shape[0], inputs.shape[1]
         pos_encodings = self.pos_enc[:seq_len, :].unsqueeze(0)  # type: ignore
         return pos_encodings.repeat(batch_size, 1, 1)
-        #return self.pos_enc[indices]
+        # return self.pos_enc[indices]
 
     def _positional_encs(self) -> torch.Tensor:
         """Produces a tensor of positional embeddings for the model
@@ -229,8 +232,7 @@ class SincCosPositionalEncoding(nn.Module):
         encs = torch.tensor([dim / self.d_model for dim in range(0, self.d_model, 2)])
         encs = 10000**encs
         encs = [  # type: ignore
-            (torch.sin(pos / encs), torch.cos(pos / encs))
-            for pos in range(self.max_seq_len)
+            (torch.sin(pos / encs), torch.cos(pos / encs)) for pos in range(self.max_seq_len)
         ]
         encs = [torch.stack(enc, dim=1).flatten()[: self.d_model] for enc in encs]  # type: ignore
         encs = torch.stack(encs)  # type: ignore
@@ -251,7 +253,7 @@ class LearnedPositionalEncoding(nn.Module):
         self.max_seq_len = max_seq_len
         self.pos_encodings = nn.Embedding(self.max_seq_len, d_model)
         self.norm = nn.LayerNorm(d_model)
-    
+
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Given an input returns a learned positional encoding.
         Args:
@@ -261,7 +263,7 @@ class LearnedPositionalEncoding(nn.Module):
         """
 
         # Set pos enc of masked tokens to self.max_seq_len - 1
-        #indices[indices == -1] = self.max_seq_len - 1
+        # indices[indices == -1] = self.max_seq_len - 1
         batch_size, seq_len = inputs.shape[0], inputs.shape[1]
         indices = torch.arange(seq_len, device=inputs.device)
         indice_tensor = indices.repeat(batch_size, 1)
@@ -270,5 +272,4 @@ class LearnedPositionalEncoding(nn.Module):
         return pos_enc
 
 
-POS_ENC_REGISTRY = {'sin_cos': SincCosPositionalEncoding,
-                    'learned': LearnedPositionalEncoding}
+POS_ENC_REGISTRY = {"sin_cos": SincCosPositionalEncoding, "learned": LearnedPositionalEncoding}

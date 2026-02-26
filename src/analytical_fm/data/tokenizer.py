@@ -9,22 +9,18 @@ def build_regex_tokenizer(
     max_vocab_size: int = 10000,
     max_length: int = 512,
 ):
-    mol_pre_tok = pre_tokenizers.Sequence(
-        [
-            pre_tokenizers.Split(
-                pattern=Regex(regex_string),
-                behavior=tokenizer_behaviour,
-            )
-        ]
-    )
+    mol_pre_tok = pre_tokenizers.Sequence([
+        pre_tokenizers.Split(
+            pattern=Regex(regex_string),
+            behavior=tokenizer_behaviour,
+        )
+    ])
 
     tok = Tokenizer(models.WordLevel(unk_token="<unk>"))
     tok.pre_tokenizer = mol_pre_tok
 
     special_tokens = ["<pad>", "<unk>", "<bos>", "<eos>"]
-    trainer = trainers.WordLevelTrainer(
-        vocab_size=max_vocab_size, special_tokens=special_tokens
-    )
+    trainer = trainers.WordLevelTrainer(vocab_size=max_vocab_size, special_tokens=special_tokens)
 
     tok.train_from_iterator(feature, trainer=trainer)
 

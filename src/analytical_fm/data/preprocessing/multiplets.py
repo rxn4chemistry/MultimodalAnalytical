@@ -58,9 +58,7 @@ class MultipletPreprocessor:
                 numerical_encoding,
             )
             padded_numerical_values = padded_numerical_values.view(-1)
-            padded_numerical_values = padded_numerical_values[
-                padded_numerical_values != 1
-            ]
+            padded_numerical_values = padded_numerical_values[padded_numerical_values != 1]
 
             mean = padded_numerical_values.mean()
             std = padded_numerical_values.std()
@@ -91,7 +89,9 @@ class MultipletPreprocessor:
 
         # Adjust for Multitasking: Ensure All Nones are fully masked
         no_data_mask = [h_nmr == "" for h_nmr in processed_multiplets]
-        tokenized_input['attention_mask'][no_data_mask] = torch.full((tokenized_input['attention_mask'].shape[-1],), 0)
+        tokenized_input["attention_mask"][no_data_mask] = torch.full(
+            (tokenized_input["attention_mask"].shape[-1],), 0
+        )
 
         return tokenized_input
 
@@ -118,9 +118,7 @@ class MultipletPreprocessor:
         if self.normalisation_factors is None:
             raise ValueError("Normalisation factors need to be initialised.")
 
-        return (
-            value - self.normalisation_factors["mean"]
-        ) / self.normalisation_factors["std"]
+        return (value - self.normalisation_factors["mean"]) / self.normalisation_factors["std"]
 
     def process_multiplet(
         self,
@@ -154,9 +152,7 @@ class MultipletPreprocessor:
                 )
 
             elif encoding == "numerical_encoding":
-                formatted_peak = "[NUM] [NUM] {} {}H ".format(
-                    peak["category"], peak["nH"]
-                )
+                formatted_peak = "[NUM] [NUM] {} {}H ".format(peak["category"], peak["nH"])
 
                 if self.normalise and not initialise:
                     range_max = self.normalise_float(float(peak["rangeMax"]))

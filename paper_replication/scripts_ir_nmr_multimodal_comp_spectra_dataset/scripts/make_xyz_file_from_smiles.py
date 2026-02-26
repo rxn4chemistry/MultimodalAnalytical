@@ -21,7 +21,7 @@ from rdkit.Chem import AllChem
 def get_mol_from_smiles(smiles, id_):
     m1 = Chem.MolFromSmiles(smiles)
     m2 = Chem.AddHs(m1)
-    AllChem.EmbedMolecule(m2,randomSeed=0xf00d)
+    AllChem.EmbedMolecule(m2,randomSeed=0xf00d) # type:ignore
     m2txt = Chem.MolToMolBlock(m2)
     if False:
         print(Chem.MolToMolBlock(m2),file=Path('./data/info_'+str(id_)+'.mol').open('w+'))

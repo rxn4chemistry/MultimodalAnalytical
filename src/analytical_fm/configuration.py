@@ -7,16 +7,19 @@ from rdkit import Chem
 
 
 class DefaultSettings(BaseSettings):
-
     default_seed: int = Field(default=3247, description="Seed")
 
     default_val_set_size: int = Field(default=10000, description="Default validation set size")
     default_test_set_size: int = Field(default=10000, description="Default test set size")
-    default_samples: int = Field(default=10000, description="Default no. of samples to use to build preprocessors/tokenizers")
-    configs_path: str = Field(default="../../../configs", description="Default path location for the hydra configurations")
+    default_samples: int = Field(
+        default=10000, description="Default no. of samples to use to build preprocessors/tokenizers"
+    )
+    configs_path: str = Field(
+        default="../../../configs", description="Default path location for the hydra configurations"
+    )
 
     default_func_groups: Dict[str, Chem.Mol] = Field(
-        default_factory = lambda : {
+        default_factory=lambda: {
             "Acid anhydride": Chem.MolFromSmarts("[CX3](=[OX1])[OX2][CX3](=[OX1])"),
             "Acyl halide": Chem.MolFromSmarts("[CX3](=[OX1])[F,Cl,Br,I]"),
             "Alcohol": Chem.MolFromSmarts("[#6][OX2H]"),
@@ -59,7 +62,7 @@ class DefaultSettings(BaseSettings):
         }
     )
 
-    @field_validator('default_func_groups', mode='before')
+    @field_validator("default_func_groups", mode="before")
     @classmethod
     def parse_func_groups(cls, env_variable):
         # Validate default_func_groups
@@ -72,16 +75,21 @@ class DefaultSettings(BaseSettings):
                 try:
                     return {key: Chem.MolFromSmarts(val) for key, val in env_variable.items()}
                 except Exception:
-                    raise ValueError(f"Tried to convert func groups to Chem.Mol. Failed {env_variable}.")
-        
+                    raise ValueError(
+                        f"Tried to convert func groups to Chem.Mol. Failed {env_variable}."
+                    )
+
         # Try loading from string
         elif isinstance(env_variable, str):
             import json
+
             try:
                 data = json.loads(env_variable)
                 return {key: Chem.MolFromSmarts(val) for key, val in data.items()}
             except Exception:
-                raise ValueError(f"Tried to convert func groups to Chem.Mol. Failed {env_variable}.")
+                raise ValueError(
+                    f"Tried to convert func groups to Chem.Mol. Failed {env_variable}."
+                )
         else:
             raise ValueError(f"Can't handle variable {env_variable}.")
 

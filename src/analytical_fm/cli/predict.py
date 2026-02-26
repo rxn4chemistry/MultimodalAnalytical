@@ -33,7 +33,9 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-@hydra.main(version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_predict")
+@hydra.main(
+    version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_predict"
+)
 def main(config: DictConfig):
 
     seed_everything()
@@ -47,11 +49,10 @@ def main(config: DictConfig):
     data_config = config["data"].copy()
     print(data_config)
     data_config = OmegaConf.to_container(data_config, resolve=True)
-    model_config: Dict[str, Any] = OmegaConf.to_container(config["model"].copy(), resolve=True) # type: ignore
-
+    model_config: Dict[str, Any] = OmegaConf.to_container(config["model"].copy(), resolve=True)  # type: ignore
 
     data_config, dataset = build_dataset_multimodal(
-        data_config, # type: ignore
+        data_config,  # type: ignore
         data_path=config["data_path"],
         cv_split=config["cv_split"],
         splitting=config["splitting"],
@@ -61,12 +62,9 @@ def main(config: DictConfig):
     )
     logging.info("Build dataset")
 
-
     # Load/build tokenizers and preprocessors
     if config["preprocessor_path"] is None:
-        preprocessor_path = (
-            Path(config["working_dir"]) / config["job_name"] / "preprocessor.pkl"
-        )
+        preprocessor_path = Path(config["working_dir"]) / config["job_name"] / "preprocessor.pkl"
     else:
         preprocessor_path = Path(config["preprocessor_path"])
 
@@ -77,19 +75,17 @@ def main(config: DictConfig):
         for modality in modalities_not_included:
             data_config_loaded.pop(modality)
         data_config_datamodule = data_config_loaded
-        
+
     else:
         data_config, preprocessors = load_preprocessors(dataset["train"], data_config)
         with preprocessor_path.open("wb") as f:
             pickle.dump((data_config, preprocessors), f)
     logging.info("Build preprocessors")
 
-
     # Load datamodule
     model_type = config["model"]["model_type"]
     batch_size = config["model"]["batch_size"]
     predict_class = config["predict_class"]
-
 
     data_module = MultiModalDataModule(
         dataset=dataset,
@@ -98,12 +94,11 @@ def main(config: DictConfig):
         model_type=model_type,
         batch_size=batch_size,
         num_workers=config["num_cpu"],
-        extra_columns=[predict_class]
+        extra_columns=[predict_class],
     )
     target_modality = data_module.collator.target_modality
     target_tokenizer = preprocessors[target_modality]
     logging.info("Build Datamodule")
-
 
     # Load Model
     checkpoint_path = config["model"]["model_checkpoint_path"]
@@ -125,7 +120,9 @@ def main(config: DictConfig):
 
     #  Evaluate Model
     n_beams = config["model"]["n_beams"] if "n_beams" in config["model"] else 10
-    rejection_sampling = config["model"]["rejection_sampling"] if "rejection_sampling" in config["model"] else False
+    rejection_sampling = (
+        config["model"]["rejection_sampling"] if "rejection_sampling" in config["model"] else False
+    )
     trainer = build_trainer(model_type, **config["trainer"])
 
     classes = None
@@ -137,29 +134,38 @@ def main(config: DictConfig):
         for batch in data_module.predict_dataloader():
             classes.extend(batch[predict_class])
 
-        if isinstance(classes[0],list):
+        if isinstance(classes[0], list):
             classes = [cl[0] for cl in classes]
 
         logger.info(f"Classes: {set(classes)}")
         logger.info(f"Len of classes array: {len(classes)}")
 
-    batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module) # type:ignore
-    
-    # Concatenate Predictions
-    predictions = {'avg_loss': np.mean([batch['loss'] for batch in batch_predictions]),
-                   'predictions': [batch['predictions'][i * n_beams : (i+1) * n_beams] for batch in batch_predictions for i in range(len(batch['predictions']) // n_beams)],
-                   'targets': [target for batch in batch_predictions for target in batch['targets']]}
-    
-    if rejection_sampling:
-        predictions = reject_sample(predictions, molecules=config['molecules'])
+    batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module)  # type:ignore
 
-    
-    metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=classes, molecules=config['molecules'], logging=True)
-    
+    # Concatenate Predictions
+    predictions = {
+        "avg_loss": np.mean([batch["loss"] for batch in batch_predictions]),
+        "predictions": [
+            batch["predictions"][i * n_beams : (i + 1) * n_beams]
+            for batch in batch_predictions
+            for i in range(len(batch["predictions"]) // n_beams)
+        ],
+        "targets": [target for batch in batch_predictions for target in batch["targets"]],
+    }
+
+    if rejection_sampling:
+        predictions = reject_sample(predictions, molecules=config["molecules"])
+
+    metrics = calc_sampling_metrics(
+        predictions["predictions"],
+        predictions["targets"],
+        classes=classes,
+        molecules=config["molecules"],
+        logging=True,
+    )
+
     save_path = (
-        Path(config["working_dir"])
-        / config["job_name"]
-        / f"test_data_logits_beam_{n_beams}.pkl"
+        Path(config["working_dir"]) / config["job_name"] / f"test_data_logits_beam_{n_beams}.pkl"
     )
     with (save_path).open("wb") as save_file:
         pickle.dump(
@@ -167,15 +173,12 @@ def main(config: DictConfig):
             save_file,
         )
 
-    metrics_path = (
-        Path(config["working_dir"])
-        / config["job_name"]
-        / f"metrics_beam_{n_beams}.json"
-    )
+    metrics_path = Path(config["working_dir"]) / config["job_name"] / f"metrics_beam_{n_beams}.json"
     with (metrics_path).open("w") as metrics_file:
         json.dump(metrics, metrics_file)
-        
+
     logger.info(f"Metrics saved to: {metrics_path}")
+
 
 if __name__ == "__main__":
     main()

@@ -41,7 +41,9 @@ from analytical_fm.utils import (
 )
 
 
-@hydra.main(version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_train")
+@hydra.main(
+    version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_train"
+)
 def main(config: DictConfig):
 
     if not torch.distributed.is_initialized():
@@ -49,21 +51,16 @@ def main(config: DictConfig):
             torch.distributed.init_process_group(
                 backend="nccl" if torch.cuda.is_available() else "gloo",
                 timeout=timedelta(
-                    minutes=float(
-                        os.getenv("TORCH_PROCESS_GROUP_TIMEOUT_IN_MINUTES", 30)
-                    )
+                    minutes=float(os.getenv("TORCH_PROCESS_GROUP_TIMEOUT_IN_MINUTES", 30))
                 ),
             )
             logger.info("Process group has been initialized successfully")
         except ValueError:
-            logger.warning(
-                "Initializing the process group from the environment was not possible!"
-            )
-
+            logger.warning("Initializing the process group from the environment was not possible!")
 
     logger.remove()
     logger.add(cast(TextIO, sys.__stderr__), enqueue=True)
-    
+
     logger.add(
         Path(config["working_dir"]) / config["job_name"] / "loguru-training.log",
         enqueue=True,  # NOTE: added to ensure log file is written withd no lock during distributed training
@@ -79,21 +76,21 @@ def main(config: DictConfig):
             data_config = config["data"].copy()
             logger.info(data_config)
             data_config = OmegaConf.to_container(data_config, resolve=True)
-            model_config: Dict[str, Any] = OmegaConf.to_container(config["model"].copy(), resolve=True) # type: ignore
+            model_config: Dict[str, Any] = OmegaConf.to_container(
+                config["model"].copy(), resolve=True
+            )  # type: ignore
 
             # Only preprocess on main thread
-            fail_safe_conditional_distributed_barrier(
-                lambda: torch.distributed.get_rank() > 0
-            )
+            fail_safe_conditional_distributed_barrier(lambda: torch.distributed.get_rank() > 0)
 
             data_config, dataset = build_dataset_multimodal(
-                data_config, # type: ignore
+                data_config,  # type: ignore
                 data_path=config["data_path"],
                 cv_split=config["cv_split"],
                 splitting=config["splitting"],
                 augment_config=config["augment"],
                 num_cpu=config["num_cpu"],
-                mixture_config=config["mixture"]
+                mixture_config=config["mixture"],
             )
             logging.info("Built dataset")
 
@@ -128,7 +125,7 @@ def main(config: DictConfig):
                 model_type=model_type,
                 batch_size=batch_size,
                 num_workers=config["num_cpu"],
-                extra_columns=[predict_class]
+                extra_columns=[predict_class],
             )
             target_modality = data_module.collator.target_modality
             logging.info("Built Datamodule")
@@ -138,12 +135,12 @@ def main(config: DictConfig):
                 lambda: torch.distributed.get_rank() == 0 and torch.cuda.is_available()
             )
             # Load Model
-            train_steps = calculate_training_steps(dataset['train'], config)
+            train_steps = calculate_training_steps(dataset["train"], config)
             model = HFWrapper(
                 data_config=data_config,
                 target_tokenizer=preprocessors[target_modality],
                 num_steps=train_steps,
-                modality_dropout = modality_dropout,
+                modality_dropout=modality_dropout,
                 **model_config,
             )
 
@@ -167,7 +164,6 @@ def main(config: DictConfig):
             else:
                 trainer.fit(model, datamodule=data_module, ckpt_path=checkpoint_path)
 
-
             # Load best model
             best_model_path = trainer.checkpoint_callback.best_model_path  # type: ignore
             logger.info(f"Loading best Model from: {best_model_path}")
@@ -180,7 +176,7 @@ def main(config: DictConfig):
                 data_config=data_config,
                 target_tokenizer=preprocessors[target_modality],
                 num_steps=train_steps,
-                modality_dropout = modality_dropout,
+                modality_dropout=modality_dropout,
                 **model_config,
             )
 
@@ -201,25 +197,36 @@ def main(config: DictConfig):
                 for batch in data_module.predict_dataloader():
                     classes.extend(batch[predict_class])
 
-                if isinstance(classes[0],list):
+                if isinstance(classes[0], list):
                     classes = [cl[0] for cl in classes]
 
                 logger.info(f"Classes: {set(classes)}")
                 logger.info(f"Len of classes array: {len(classes)}")
 
-            batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module) # type:ignore
-            
+            batch_predictions: List[Dict[str, Any]] = trainer.predict(model, datamodule=data_module)  # type:ignore
+
             # Concatenate Predictions
             predictions = {
-                'avg_loss': np.mean([batch['loss'] for batch in batch_predictions]),
-                'predictions': [batch['predictions'][i * n_beams : (i+1) * n_beams] for batch in batch_predictions for i in range(len(batch['predictions']) // n_beams)],
-                'targets': [target for batch in batch_predictions for target in batch['targets']],
-                'classes': [cl for batch in batch_predictions for cl in batch[predict_class]] if predict_class else None,
+                "avg_loss": np.mean([batch["loss"] for batch in batch_predictions]),
+                "predictions": [
+                    batch["predictions"][i * n_beams : (i + 1) * n_beams]
+                    for batch in batch_predictions
+                    for i in range(len(batch["predictions"]) // n_beams)
+                ],
+                "targets": [target for batch in batch_predictions for target in batch["targets"]],
+                "classes": [cl for batch in batch_predictions for cl in batch[predict_class]]
+                if predict_class
+                else None,
             }
-            
-            metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=predictions['classes'], molecules=config['molecules'], logging=True)
 
-    
+            metrics = calc_sampling_metrics(
+                predictions["predictions"],
+                predictions["targets"],
+                classes=predictions["classes"],
+                molecules=config["molecules"],
+                logging=True,
+            )
+
             rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
             save_path = (
                 Path(config["working_dir"])
@@ -232,7 +239,7 @@ def main(config: DictConfig):
                     save_file,
                 )
 
-            #save metrics
+            # save metrics
             metrics_path = (
                 Path(config["working_dir"])
                 / config["job_name"]
@@ -240,11 +247,12 @@ def main(config: DictConfig):
             )
             with (metrics_path).open("w") as metrics_file:
                 json.dump(metrics, metrics_file)
-                
+
             logger.info(f"Metrics saved to: {metrics_path}")
-            
+
         except Exception:
             logger.exception("Pipeline execution failed!")
+
 
 if __name__ == "__main__":
     main()
