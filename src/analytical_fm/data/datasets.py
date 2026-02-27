@@ -19,19 +19,32 @@ from ..configuration import DEFAULT_SETTINGS
 from .augmentations import augment
 from .data_utils import IterableDatasetWithLength
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 valid_modalities = ["text", "vector"]
+
 
 def identity(x):
     return x
 
-def multi_config_mix(dataset: Dataset, mixture_config: DictConfig, split: str, seed: int = DEFAULT_SETTINGS.default_seed) -> Generator[Dict[str, Any], None, None]:
-    mix_generators = [mix_spectra(dataset = dataset,  mix_config=mixture_config[mode], split=split, seed=seed) for mode in mixture_config]
-    for samples in zip_longest(*mix_generators, fillvalue=None): # alternate generators to have pseudo-randomicity
+
+def multi_config_mix(
+    dataset: Dataset,
+    mixture_config: DictConfig,
+    split: str,
+    seed: int = DEFAULT_SETTINGS.default_seed,
+) -> Generator[Dict[str, Any], None, None]:
+    mix_generators = [
+        mix_spectra(dataset=dataset, mix_config=mixture_config[mode], split=split, seed=seed)
+        for mode in mixture_config
+    ]
+    for samples in zip_longest(
+        *mix_generators, fillvalue=None
+    ):  # alternate generators to have pseudo-randomicity
         for sample in samples:
             if sample is not None:
                 yield sample
+
 
 def normalize_spectrum(spectrum: List[float]) -> List[float]:
     min_val = min(spectrum)
@@ -41,7 +54,10 @@ def normalize_spectrum(spectrum: List[float]) -> List[float]:
         return [0] * len(spectrum)
     return [(x - min_val) / (max_val - min_val) for x in spectrum]
 
-def mix_spectra(dataset: Dataset, mix_config: DictConfig, split: str, seed: int = DEFAULT_SETTINGS.default_seed) -> Generator[Dict[str, Any], None, None]:
+
+def mix_spectra(
+    dataset: Dataset, mix_config: DictConfig, split: str, seed: int = DEFAULT_SETTINGS.default_seed
+) -> Generator[Dict[str, Any], None, None]:
     np.random.seed(seed)
 
     n_compounds = mix_config["n_compounds"]
@@ -57,16 +73,15 @@ def mix_spectra(dataset: Dataset, mix_config: DictConfig, split: str, seed: int 
     if compounds_ratio is None:
         compounds_ratio = [1 / n_compounds] * n_compounds
 
-
     if len(compounds_ratio) != n_compounds or sum(compounds_ratio) != 1:
         raise ValueError(
             f"Invalid compound ratios: expected {n_compounds} compounds with ratios summing to 1. "
             f"Found {len(compounds_ratio)} compounds, and their sum is {sum(compounds_ratio):.2f}. "
             "Please ensure the number of compounds and the sum of the ratios are correct."
         )
-    
+
     num_expected = math.perm(len(dataset), n_compounds)
-    
+
     a = list(range(len(dataset)))
     dataset_df = dataset.to_pandas()
     dataset_df = dataset_df[["Smiles", "Formula", "IR"]]
@@ -85,7 +100,7 @@ def mix_spectra(dataset: Dataset, mix_config: DictConfig, split: str, seed: int 
                 "IR": normalize_spectrum(data[i][2]) if normalize else data[i][2],
                 "Additional_smiles": "mock",
                 "Percentage": f"{1 / n_compounds}",
-                "IR_target": mock
+                "IR_target": mock,
             }
     else:
         for n in range(max_n_samples // parallel_samples):
@@ -96,24 +111,35 @@ def mix_spectra(dataset: Dataset, mix_config: DictConfig, split: str, seed: int 
 
             random_indices = random_indices[valid_mask]
 
-            if n * parallel_samples +  parallel_samples >= num_expected:
+            if n * parallel_samples + parallel_samples >= num_expected:
                 break
 
             for idx in random_indices:
                 smiles_formula = [data[s][0] for s in idx]
                 molecular_formula = [data[s][1] for s in idx]
                 spectra = [data[s][2] for s in idx]
-                combined_spectrum = np.average(
-                    spectra, weights=compounds_ratio, axis=0
-                ).tolist()
+                combined_spectrum = np.average(spectra, weights=compounds_ratio, axis=0).tolist()
 
                 if normalize:
                     combined_spectrum = normalize_spectrum(combined_spectrum)
 
-                if len(combined_spectrum) != 1800: # pad the real data
-                    combined_spectrum = combined_spectrum + [0] * (1800-len(combined_spectrum))
+                if len(combined_spectrum) != 1800:  # pad the real data
+                    combined_spectrum = combined_spectrum + [0] * (1800 - len(combined_spectrum))
                 for i in range(n_compounds):
-                    yield {"Smiles": smiles_formula[i], "Formula": molecular_formula[i], "IR": combined_spectrum, "Additional_smiles": ",".join([smiles_formula[idx] for idx in range(n_compounds) if idx != i]), "Percentage": f"{compounds_ratio[i]}", "IR_target": spectra[i]}
+                    if compounds_ratio[i] == 0:
+                        continue
+
+                    yield {
+                        "Smiles": smiles_formula[i],
+                        "Formula": molecular_formula[i],
+                        "IR": combined_spectrum,
+                        "Additional_smiles": ",".join([
+                            smiles_formula[idx] for idx in range(n_compounds) if idx != i
+                        ]),
+                        "Percentage": f"{compounds_ratio[i]}",
+                        "IR_target": spectra[i],
+                    }
+
 
 def split(dataset: Dataset, cv_split: int = 0, seed: int = 3245) -> DatasetDict:
     """
@@ -140,13 +166,11 @@ def split(dataset: Dataset, cv_split: int = 0, seed: int = 3245) -> DatasetDict:
         seed=seed,
     )
 
-    return DatasetDict(
-        {
-            "train": split_data_val["train"],
-            "test": test_set,
-            "validation": split_data_val["test"],
-        }
-    )
+    return DatasetDict({
+        "train": split_data_val["train"],
+        "test": test_set,
+        "validation": split_data_val["test"],
+    })
 
 
 def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
@@ -175,12 +199,8 @@ def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
     single_counts = counts_df[counts_df["counts"] == 1].copy()
     multi_counts = counts_df[counts_df["counts"] > 1].copy()
 
-    single_counts_df = data[
-        data["functional_group_names"].isin(single_counts["functional_groups"])
-    ]
-    multi_counts_df = data[
-        data["functional_group_names"].isin(multi_counts["functional_groups"])
-    ]
+    single_counts_df = data[data["functional_group_names"].isin(single_counts["functional_groups"])]
+    multi_counts_df = data[data["functional_group_names"].isin(multi_counts["functional_groups"])]
 
     if cv_split == -1:
         train_set, test_set = train_test_split(
@@ -192,11 +212,7 @@ def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
         )
     else:
         k_folds = StratifiedKFold(n_splits=10, shuffle=True, random_state=seed)
-        splits = list(
-            k_folds.split(
-                X=multi_counts_df, y=multi_counts_df["functional_group_names"]
-            )
-        )
+        splits = list(k_folds.split(X=multi_counts_df, y=multi_counts_df["functional_group_names"]))
         train_indices, test_indices = splits[cv_split][0], splits[cv_split][1]
         train_set, test_set = (
             multi_counts_df.iloc[train_indices],
@@ -217,7 +233,10 @@ def func_split(data_path, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
 
     return DatasetDict({"train": train_set, "test": test_set, "validation": val_set})
 
-def filter_dataset_on_targets(dataset: Dataset, all_targets: List[Any], selected_targets: Set[Any]) -> List[int]:
+
+def filter_dataset_on_targets(
+    dataset: Dataset, all_targets: List[Any], selected_targets: Set[Any]
+) -> List[int]:
     """
     Filter a dataset based on the targets.
 
@@ -233,7 +252,9 @@ def filter_dataset_on_targets(dataset: Dataset, all_targets: List[Any], selected
     return dataset.select(idx)
 
 
-def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: int = 3453) -> DatasetDict:
+def target_split(
+    dataset: Dataset, target_column: str, cv_split: int = 0, seed: int = 3453
+) -> DatasetDict:
     """
     Split the dataset based on unique values in the target column.
 
@@ -247,18 +268,20 @@ def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: 
     """
 
     all_targets = dataset[target_column]
-    unique_targets = pd.unique(dataset[target_column])
+    unique_targets = np.unique(dataset[target_column])
 
     k_folds = KFold(n_splits=5, shuffle=True, random_state=seed)
     splits = list(k_folds.split(X=unique_targets))
     train_indices, test_indices = splits[cv_split][0], splits[cv_split][1]
 
-    train_targets, test_targets = (
-        unique_targets[train_indices],
-        set(unique_targets[test_indices])
-    )
+    train_targets, test_targets = (unique_targets[train_indices], set(unique_targets[test_indices]))
 
-    train_targets, val_targets = train_test_split(train_targets, test_size=min(int(0.05 * len(train_targets)), DEFAULT_SETTINGS.default_val_set_size), random_state=seed, shuffle=True)
+    train_targets, val_targets = train_test_split(
+        train_targets,
+        test_size=min(int(0.05 * len(train_targets)), DEFAULT_SETTINGS.default_val_set_size),
+        random_state=seed,
+        shuffle=True,
+    )
     train_targets, val_targets = set(train_targets), set(val_targets)
 
     train_set = filter_dataset_on_targets(dataset, all_targets, train_targets)
@@ -266,7 +289,6 @@ def target_split(dataset: Dataset, target_column: str, cv_split: int = 0, seed: 
     test_set = filter_dataset_on_targets(dataset, all_targets, test_targets)
 
     return DatasetDict({"train": train_set, "test": test_set, "validation": val_set})
-
 
 
 def build_dataset_multimodal(
@@ -278,52 +300,62 @@ def build_dataset_multimodal(
     num_cpu: int = 7,
     mixture_config: Optional[DictConfig] = None,
 ) -> Tuple[Dict[str, Union[str, int, bool]], DatasetDict]:
-    
+
     if not Path(data_path).is_dir():
         raise ValueError(
             "Data path must specify path to directory containing the dataset files as parqet."
         )
-    
+
     relevant_columns = set()
     for modality in data_config.keys():
         if isinstance(data_config[modality]["column"], str):
-            if data_config[modality]["column"] not in ["percentage"] and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
+            if data_config[modality]["column"] not in ["percentage"] and (
+                "alignment" not in data_config[modality] or not data_config[modality]["alignment"]
+            ):
                 relevant_columns.add(data_config[modality]["column"])
         elif isinstance(data_config[modality]["column"], list):
             relevant_columns.update(data_config[modality]["column"])
         else:
-            raise ValueError(
-                f"Expected column to be either list or str for modality: {modality}"
-            )
-    
+            raise ValueError(f"Expected column to be either list or str for modality: {modality}")
+
     logger.info(f"Loading dataset from {data_path}")
-    dataset_dict = load_dataset("parquet", data_dir=data_path, num_proc=num_cpu, columns=list(relevant_columns))
+    dataset_dict = load_dataset(
+        "parquet", data_dir=data_path, num_proc=num_cpu, columns=list(relevant_columns)
+    )
     logger.info("Dataset Loaded")
     # Concatenates all datasets into a single test set
     if splitting == "test_only":
         datasets = list(dataset_dict.values())
         combined_dataset = concatenate_datasets(datasets)
-        dataset_dict = DatasetDict({"test": combined_dataset, 'train': combined_dataset, 'validation': combined_dataset})
+        dataset_dict = DatasetDict({
+            "test": combined_dataset,
+            "train": combined_dataset,
+            "validation": combined_dataset,
+        })
 
     # Split based on functinal group occurence. Only relevant for Merck
     elif splitting == "func_group_split":
         dataset_dict = func_split(data_path, cv_split=cv_split, seed=DEFAULT_SETTINGS.default_seed)
-    
+
     # Split based on unique values in the target column
     elif splitting == "unique_target":
         # Get Target column
         target_column = ""
         for modality_config in data_config.values():
-            if modality_config["target"] and ("alignment" not in modality_config or not modality_config["alignment"]):
+            if modality_config["target"] and (
+                "alignment" not in modality_config or not modality_config["alignment"]
+            ):
                 target_column = modality_config["column"]
                 break
-        
+
         # Combine dataset
         datasets = list(dataset_dict.values())
         combined_dataset = concatenate_datasets(datasets)
 
         # Split Dataset
-        dataset_dict = target_split(combined_dataset, target_column, cv_split=cv_split, seed=DEFAULT_SETTINGS.default_seed)
+        dataset_dict = target_split(
+            combined_dataset, target_column, cv_split=cv_split, seed=DEFAULT_SETTINGS.default_seed
+        )
 
     # Random Split
     elif splitting == "random":
@@ -333,7 +365,6 @@ def build_dataset_multimodal(
 
     # Sanity check for loading a dataset already split into train/test/val
     elif splitting == "given_splits" and len(dataset_dict) == 3:
-
         if set(dataset_dict.keys()) != {"train", "validation", "test"}:
             raise ValueError(
                 f"Expected ['train', 'validation', 'test'] in dataset but found {list(dataset_dict.keys())}."
@@ -341,18 +372,18 @@ def build_dataset_multimodal(
 
     # Raise Error for all edge cases
     else:
-        raise ValueError(
-            f"Unknown split {splitting}."
-        )
-    
+        raise ValueError(f"Unknown split {splitting}.")
+
     # Augment
-    dataset_dict['train'] = augment(dataset_dict['train'], augment_config, num_cpu)
+    dataset_dict["train"] = augment(dataset_dict["train"], augment_config, num_cpu)
 
     # Rename columns
     rename_columns = dict()
     for modality in data_config.keys():
         if isinstance(data_config[modality]["column"], str):
-            if data_config[modality]["column"] not in ["percentage"] and ("alignment" not in data_config[modality] or not data_config[modality]["alignment"]):
+            if data_config[modality]["column"] not in ["percentage"] and (
+                "alignment" not in data_config[modality] or not data_config[modality]["alignment"]
+            ):
                 rename_columns[data_config[modality]["column"]] = modality
 
     processed_dataset_dict = DatasetDict()
@@ -364,9 +395,21 @@ def build_dataset_multimodal(
     if isinstance(mixture_config, DictConfig):
         logger.info("Creating mixture dataset")
         for dataset_key in processed_dataset_dict.keys():
-            max_samples = sum([mixture_config[conf][f"{dataset_key}_max_n_samples"] for conf in mixture_config])
+            max_samples = sum([
+                mixture_config[conf][f"{dataset_key}_max_n_samples"] for conf in mixture_config
+            ])
 
-            processed_dataset_dict[dataset_key] = IterableDatasetWithLength(generator_fn=multi_config_mix, generator_args = {"dataset": processed_dataset_dict[dataset_key], "mixture_config": mixture_config, "split": dataset_key, "seed": DEFAULT_SETTINGS.default_seed}, length=max_samples, split=dataset_key)
+            processed_dataset_dict[dataset_key] = IterableDatasetWithLength(
+                generator_fn=multi_config_mix,
+                generator_args={
+                    "dataset": processed_dataset_dict[dataset_key],
+                    "mixture_config": mixture_config,
+                    "split": dataset_key,
+                    "seed": DEFAULT_SETTINGS.default_seed,
+                },
+                length=max_samples,
+                split=dataset_key,
+            )
             logger.info(f"Max len for {dataset_key}: {processed_dataset_dict[dataset_key]._length}")
         logger.info("IR spectra Iterable Dataset created!")
 

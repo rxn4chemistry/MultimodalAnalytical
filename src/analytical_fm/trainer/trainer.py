@@ -16,7 +16,7 @@ def build_trainer(
     limit_val_batches: float = 5.0,
     checkpoint_monitor: str = "val_molecular_accuracy",
     val_check_interval: Optional[Union[int, float]] = None,
-    early_stopping_patience: Optional[int] = None
+    early_stopping_patience: Optional[int] = None,
 ) -> Trainer:
     logger = TensorBoardLogger(log_dir, name=task)
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -26,10 +26,13 @@ def build_trainer(
         "BartForConditionalGeneration",
         "CustomBartForConditionalGeneration",
         "T5ForConditionalGeneration",
-        "CustomModel"
+        "CustomModel",
     ]:
         checkpoint_callback = ModelCheckpoint(
-            monitor=checkpoint_monitor, save_last=True, save_top_k=5, mode="max" if "loss" not in checkpoint_monitor else "min"
+            monitor=checkpoint_monitor,
+            save_last=True,
+            save_top_k=5,
+            mode="max" if "loss" not in checkpoint_monitor else "min",
         )
         checkpoint_callback.CHECKPOINT_EQUALS_CHAR = "_"
     elif model_type == "encoder":
@@ -55,16 +58,16 @@ def build_trainer(
     strategy = "ddp_find_unused_parameters_true" if torch.cuda.device_count() > 1 else "auto"
 
     trainer = Trainer(
-        devices = -1 if torch.cuda.is_available() else 1,
-        logger = logger,
-        max_epochs = epochs,
-        accumulate_grad_batches = acc_batches,
-        gradient_clip_val = clip_grad,
-        limit_val_batches = limit_val_batches,
-        callbacks = callbacks,
-        check_val_every_n_epoch = 1,
-        precision = "16-mixed" if torch.cuda.is_available() else "32-true" ,
-        strategy = strategy,
-        val_check_interval=val_check_interval
+        devices=-1 if torch.cuda.is_available() else 1,
+        logger=logger,
+        max_epochs=epochs,
+        accumulate_grad_batches=acc_batches,
+        gradient_clip_val=clip_grad,
+        limit_val_batches=limit_val_batches,
+        callbacks=callbacks,
+        check_val_every_n_epoch=1,
+        precision="16-mixed" if torch.cuda.is_available() else "32-true",
+        strategy=strategy,
+        val_check_interval=val_check_interval,
     )
     return trainer

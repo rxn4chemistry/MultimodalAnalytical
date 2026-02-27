@@ -24,7 +24,7 @@ class PatchPreprocessor:
     overlap: int = field(init=True, default=1)
     derivative: bool = field(init=True, default=False)
 
-    encoding_type: str = field(init=True, default='')
+    encoding_type: str = field(init=True, default="")
 
     def initialise(
         self,
@@ -99,8 +99,9 @@ class PatchPreprocessor:
             summed_patched_spectrum = patched_spectrum.sum(-1)
             attention_mask = summed_patched_spectrum == 0
         else:
-            attention_mask = torch.stack(
-                [torch.full((patched_spectrum.shape[1],), (spec_size_mask[i] == -1)) for i in range(patched_spectrum.shape[0])]
-            )
+            attention_mask = torch.stack([
+                torch.full((patched_spectrum.shape[1],), (spec_size_mask[i] == -1))
+                for i in range(patched_spectrum.shape[0])
+            ])
 
         return patched_spectrum, attention_mask

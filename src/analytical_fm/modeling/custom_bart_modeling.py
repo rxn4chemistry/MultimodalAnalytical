@@ -19,7 +19,6 @@
 from typing import List, Optional, Tuple, Union
 
 import torch
-import torch.utils.checkpoint
 from torch import nn
 from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPastAndCrossAttentions
 from transformers.models.bart.configuration_bart import BartConfig
@@ -79,47 +78,48 @@ class CustomBartConfig(BartConfig):
         Same as HF Bart Config with the addition of the final_layer_norm argument.
         """
 
-        super().__init__(vocab_size,
-                         max_position_embeddings,
-                         encoder_layers,
-                         encoder_ffn_dim,
-                         encoder_attention_heads,
-                         decoder_layers,
-                         decoder_ffn_dim,
-                         decoder_attention_heads,
-                         encoder_layerdrop,
-                         decoder_layerdrop,
-                         activation_function,
-                         d_model,
-                         dropout,
-                         attention_dropout,
-                         activation_dropout,
-                         init_std,
-                         classifier_dropout,
-                         scale_embedding,
-                         use_cache,
-                         num_labels,
-                         pad_token_id,
-                         bos_token_id,
-                         eos_token_id,
-                         is_encoder_decoder,
-                         decoder_start_token_id,
-                         forced_eos_token_id,
-                         **kwargs,
-                         )
-        
+        super().__init__(
+            vocab_size,
+            max_position_embeddings,
+            encoder_layers,
+            encoder_ffn_dim,
+            encoder_attention_heads,
+            decoder_layers,
+            decoder_ffn_dim,
+            decoder_attention_heads,
+            encoder_layerdrop,
+            decoder_layerdrop,
+            activation_function,
+            d_model,
+            dropout,
+            attention_dropout,
+            activation_dropout,
+            init_std,
+            classifier_dropout,
+            scale_embedding,
+            use_cache,
+            num_labels,
+            pad_token_id,
+            bos_token_id,
+            eos_token_id,
+            is_encoder_decoder,
+            decoder_start_token_id,
+            forced_eos_token_id,
+            **kwargs,
+        )
+
         self.final_layer_norm = final_layer_norm
         self.batch_size = batch_size
-        self.positional_encoding_type = 'sin_cos'
+        self.positional_encoding_type = "sin_cos"
 
 
 class PreLayerNormBartEncoderLayer(BartEncoderLayer):
-
     def __init__(self, config: BartConfig):
         super().__init__(config)
 
         del self.self_attn
-        self.self_attn = nn.MultiheadAttention(embed_dim=self.embed_dim,
+        self.self_attn = nn.MultiheadAttention(
+            embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
         )
@@ -128,7 +128,7 @@ class PreLayerNormBartEncoderLayer(BartEncoderLayer):
         self,
         hidden_states: torch.FloatTensor,
         attention_mask: torch.FloatTensor,
-        layer_head_mask: torch.FloatTensor, # noqa: ARG002
+        layer_head_mask: torch.FloatTensor,  # noqa: ARG002
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.FloatTensor, Optional[torch.FloatTensor]]:
         """
@@ -144,29 +144,35 @@ class PreLayerNormBartEncoderLayer(BartEncoderLayer):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
-        #hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 1
+        # hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 1
         residual = hidden_states
-        hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 2
+        hidden_states = self.self_attn_layer_norm(hidden_states)  # Custom version 2
 
         hidden_states = hidden_states.transpose(1, 0)
         hidden_states, attn_weights = self.self_attn(
-            hidden_states, hidden_states, hidden_states, attn_mask=None, key_padding_mask=attention_mask[:, :, 0].squeeze(1)
+            hidden_states,
+            hidden_states,
+            hidden_states,
+            attn_mask=None,
+            key_padding_mask=attention_mask[:, :, 0].squeeze(1),
         )
         hidden_states = hidden_states.transpose(0, 1)
 
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
-        #hidden_states = self.self_attn_layer_norm(hidden_states) # Original code
+        # hidden_states = self.self_attn_layer_norm(hidden_states) # Original code
 
-        #hidden_states = self.final_layer_norm(hidden_states) # Custom version 1
+        # hidden_states = self.final_layer_norm(hidden_states) # Custom version 1
         residual = hidden_states
-        hidden_states = self.final_layer_norm(hidden_states) # Custom version 2
+        hidden_states = self.final_layer_norm(hidden_states)  # Custom version 2
         hidden_states = self.activation_fn(self.fc1(hidden_states))
-        hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        hidden_states = nn.functional.dropout(
+            hidden_states, p=self.activation_dropout, training=self.training
+        )
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
-        #hidden_states = self.final_layer_norm(hidden_states) # Original code
+        # hidden_states = self.final_layer_norm(hidden_states) # Original code
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
@@ -183,7 +189,6 @@ class PreLayerNormBartEncoderLayer(BartEncoderLayer):
 
 
 class PreLayerNormBartDecoderLayer(BartDecoderLayer):
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -216,9 +221,9 @@ class PreLayerNormBartDecoderLayer(BartDecoderLayer):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
-        #hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 1
+        # hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 1
         residual = hidden_states
-        hidden_states = self.self_attn_layer_norm(hidden_states) # Custom version 2
+        hidden_states = self.self_attn_layer_norm(hidden_states)  # Custom version 2
         # Self Attention
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
@@ -232,15 +237,15 @@ class PreLayerNormBartDecoderLayer(BartDecoderLayer):
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
-        #hidden_states = self.self_attn_layer_norm(hidden_states) # Original code
+        # hidden_states = self.self_attn_layer_norm(hidden_states) # Original code
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
         cross_attn_weights = None
         if encoder_hidden_states is not None:
-            #hidden_states = self.encoder_attn_layer_norm(hidden_states) # Custom version 1
+            # hidden_states = self.encoder_attn_layer_norm(hidden_states) # Custom version 1
             residual = hidden_states
-            hidden_states = self.encoder_attn_layer_norm(hidden_states) # Custom version 2
+            hidden_states = self.encoder_attn_layer_norm(hidden_states)  # Custom version 2
             # cross_attn cached key/values tuple is at positions 3,4 of present_key_value tuple
             cross_attn_past_key_value = past_key_value[-2:] if past_key_value is not None else None
             hidden_states, cross_attn_weights, cross_attn_present_key_value = self.encoder_attn(
@@ -251,23 +256,27 @@ class PreLayerNormBartDecoderLayer(BartDecoderLayer):
                 past_key_value=cross_attn_past_key_value,
                 output_attentions=output_attentions,
             )
-            hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+            hidden_states = nn.functional.dropout(
+                hidden_states, p=self.dropout, training=self.training
+            )
             hidden_states = residual + hidden_states
-            #hidden_states = self.encoder_attn_layer_norm(hidden_states) # Original code
+            # hidden_states = self.encoder_attn_layer_norm(hidden_states) # Original code
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
 
         # Fully Connected
-        #hidden_states = self.final_layer_norm(hidden_states) # Custom version 1
+        # hidden_states = self.final_layer_norm(hidden_states) # Custom version 1
         residual = hidden_states
-        hidden_states = self.final_layer_norm(hidden_states) # Custom version 2
+        hidden_states = self.final_layer_norm(hidden_states)  # Custom version 2
         hidden_states = self.activation_fn(self.fc1(hidden_states))
-        hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        hidden_states = nn.functional.dropout(
+            hidden_states, p=self.activation_dropout, training=self.training
+        )
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
-        #hidden_states = self.final_layer_norm(hidden_states) # Original code
+        # hidden_states = self.final_layer_norm(hidden_states) # Original code
 
         outputs = (hidden_states,)
 
@@ -279,6 +288,7 @@ class PreLayerNormBartDecoderLayer(BartDecoderLayer):
 
         return outputs
 
+
 class CustomBartEncoder(BartEncoder):
     """
     Same functionality as standard BartEncoder. Just replaces Encoder layers with PreLayerNormBartEncoderLayers.
@@ -288,10 +298,13 @@ class CustomBartEncoder(BartEncoder):
         super().__init__(config, embed_tokens)
 
         del self.layers
-        self.layers = nn.ModuleList([PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList([
+            PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)
+        ])
         self.norm = nn.LayerNorm(config.d_model) if config.final_layer_norm else None
 
-    def forward(self,
+    def forward(
+        self,
         input_ids: torch.LongTensor = None,
         attention_mask: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
@@ -303,18 +316,20 @@ class CustomBartEncoder(BartEncoder):
         """
         Overwrite forward method of BartEncoder to add layer normalization after layers.
         """
-        
-        output = super().forward(input_ids,
-                                 attention_mask,
-                                 head_mask,
-                                 inputs_embeds,
-                                 output_attentions,
-                                 output_hidden_states,
-                                 return_dict)
-        
-        output['last_hidden_state'] = output['last_hidden_state'].transpose(1, 0)
+
+        output = super().forward(
+            input_ids,
+            attention_mask,
+            head_mask,
+            inputs_embeds,
+            output_attentions,
+            output_hidden_states,
+            return_dict,
+        )
+
+        output["last_hidden_state"] = output["last_hidden_state"].transpose(1, 0)
         if self.norm:
-            output['last_hidden_state'] = self.norm(output['last_hidden_state'])
+            output["last_hidden_state"] = self.norm(output["last_hidden_state"])
         return output
 
 
@@ -327,9 +342,11 @@ class CustomBartDecoder(BartDecoder):
         super().__init__(config, embed_tokens)
 
         del self.layers
-        self.layers = nn.ModuleList([PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList([
+            PreLayerNormBartDecoderLayer(config) for _ in range(config.encoder_layers)
+        ])
         self.norm = nn.LayerNorm(config.d_model) if config.final_layer_norm else None
-    
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -348,28 +365,30 @@ class CustomBartDecoder(BartDecoder):
         """
         Overwrite forward method of BartDecoder to add layer normalization after layers.
         """
-        
-        output = super().forward(input_ids,
-                               attention_mask,
-                               encoder_hidden_states,
-                               encoder_attention_mask,
-                               head_mask,
-                               cross_attn_head_mask,
-                               past_key_values,
-                               inputs_embeds,
-                               use_cache,
-                               output_attentions,
-                               output_hidden_states,
-                               return_dict)
-        
-        output['last_hidden_state'] = output['last_hidden_state'].transpose(1, 0)
-        
+
+        output = super().forward(
+            input_ids,
+            attention_mask,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            head_mask,
+            cross_attn_head_mask,
+            past_key_values,
+            inputs_embeds,
+            use_cache,
+            output_attentions,
+            output_hidden_states,
+            return_dict,
+        )
+
+        output["last_hidden_state"] = output["last_hidden_state"].transpose(1, 0)
+
         if self.norm:
-            output['last_hidden_state'] = self.norm(output['last_hidden_state'])
+            output["last_hidden_state"] = self.norm(output["last_hidden_state"])
         return output
 
-class CustomBartModel(BartModel):
 
+class CustomBartModel(BartModel):
     def __init__(self, config: BartConfig):
         super().__init__(config)
 
@@ -381,7 +400,6 @@ class CustomBartModel(BartModel):
 
 
 class CustomBartForConditionalGeneration(BartForConditionalGeneration):
-
     def __init__(self, config: BartConfig):
         super().__init__(config)
 

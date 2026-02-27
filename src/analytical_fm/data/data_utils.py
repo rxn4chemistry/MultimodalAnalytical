@@ -14,18 +14,29 @@ from ..configuration import DEFAULT_SETTINGS
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
 class IterableDatasetWithLength(IterableDataset):
-    def __init__(self, generator_fn: Callable, length: int, generator_args: Optional[Dict]= None, split: str = "train", features: Optional[List[str]] = None):
-        self.dataset = IterableDataset.from_generator(generator=generator_fn, gen_kwargs=generator_args, split=split, features=features)
+    def __init__(
+        self,
+        generator_fn: Callable,
+        length: int,
+        generator_args: Optional[Dict] = None,
+        split: str = "train",
+        features: Optional[List[str]] = None,
+    ):
+        self.dataset = IterableDataset.from_generator(
+            generator=generator_fn, gen_kwargs=generator_args, split=split, features=features
+        )
         self._length = length
         super().__init__(ex_iterable=self.dataset._ex_iterable, split=split)
 
     def __iter__(self):
         return self.dataset.__iter__()
-    
+
     def __len__(self):
         return self._length
-            
+
+
 def load_preprocessors(
     data_set: Dataset,
     config: Dict[str, Any],
@@ -38,7 +49,9 @@ def load_preprocessors(
     if isinstance(data_set, IterableDatasetWithLength):
         num_samples = min(DEFAULT_SETTINGS.default_samples, data_set._length)
         sampled_dataset = data_set.take(num_samples)
-        sampled_dataset = Dataset.from_generator(lambda: sampled_dataset.__iter__(), split=data_set.split)
+        sampled_dataset = Dataset.from_generator(
+            lambda: sampled_dataset.__iter__(), split=data_set.split
+        )
     else:
         selected_sample = np.random.randint(
             0, len(data_set), min(DEFAULT_SETTINGS.default_samples, len(data_set))
@@ -49,20 +62,15 @@ def load_preprocessors(
 
         if modality_config["type"] == "text":
             if "tokenizer_path" in modality_config["preprocessor_arguments"]:
-                tokenizer = AutoTokenizer.from_pretrained(
-                    modality_config["preprocessor_arguments"]
-                )
+                tokenizer = AutoTokenizer.from_pretrained(modality_config["preprocessor_arguments"])
 
             elif "tokenizer_regex" in modality_config["preprocessor_arguments"]:
                 logger.info(f"Building Tokenizer from scratch for modality: {modality}")
 
                 behaviour = (
                     "isolated"
-                    if "tokenizer_behaviour"
-                    not in modality_config["preprocessor_arguments"]
-                    else modality_config["preprocessor_arguments"][
-                        "tokenizer_behaviour"
-                    ]
+                    if "tokenizer_behaviour" not in modality_config["preprocessor_arguments"]
+                    else modality_config["preprocessor_arguments"]["tokenizer_behaviour"]
                 )
 
                 tokenizer = build_regex_tokenizer(
@@ -71,9 +79,7 @@ def load_preprocessors(
                     tokenizer_behaviour=behaviour,
                 )
 
-                logger.info(
-                    f"Modality {modality} has Vocab Size: {tokenizer.vocab_size}"
-                )
+                logger.info(f"Modality {modality} has Vocab Size: {tokenizer.vocab_size}")
 
             else:
                 raise ValueError(
@@ -87,7 +93,6 @@ def load_preprocessors(
             config[modality]["pad_token_id"] = tokenizer.pad_token_id
 
         elif modality_config["type"] in PREPROCESSORS:
-
             logger.info(f"Building {modality_config['type']} preprocessor")
 
             if modality_config["preprocessor_arguments"]:
@@ -119,16 +124,12 @@ def load_preprocessors(
                 config[modality]["n_features"] = 1
 
         else:
-            raise ValueError(
-                f"Modality with type {modality_config['type']} is not implemented."
-            )
+            raise ValueError(f"Modality with type {modality_config['type']} is not implemented.")
 
     return config, preprocessors
 
 
-def calculate_functional_group(
-    smiles: str, functional_groups: Dict[str, Any]
-) -> np.ndarray:
+def calculate_functional_group(smiles: str, functional_groups: Dict[str, Any]) -> np.ndarray:
     mol = Chem.MolFromSmiles(smiles)
 
     groups = np.zeros(len(functional_groups))
@@ -140,9 +141,7 @@ def calculate_functional_group(
     return groups
 
 
-def get_functional_groups(
-    smiles_list: List[str], functional_groups: Dict[str, Any]
-) -> np.ndarray:
+def get_functional_groups(smiles_list: List[str], functional_groups: Dict[str, Any]) -> np.ndarray:
     batch_func_groups = list()
     for smiles in smiles_list:
         func_groups = calculate_functional_group(smiles, functional_groups)
