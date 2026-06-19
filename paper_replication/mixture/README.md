@@ -15,8 +15,9 @@ On binary balanced mixtures, our model achieves a Top-10 accuracy of up to 61.4%
 
 ## Prerequisites
 
-To reproduce the the results you need to have this repo installed and the data used to train the models downloaded and processed. Installation of the codebase can be accomplished by following the steps in the [ReadMe](../../README.md). To download the data follow the steps below. All scripts are expected to be run from the directory `MultimodalAnalytical/`.
+To reproduce the the results you need to have this repo installed and the data used to train the models downloaded and processed. Installation of the codebase can be accomplished by following the steps in the [ReadMe](../../README.md). To download the data follow the steps below. All scripts are expected to be run from the directory `MultimodalAnalytical/`. Pretrained checkpoints on the simulated data can be found at [Zenodo](https://zenodo.org/records/18785306).
 
+Please note that all tables in the paper show results on experimental data sourced from the [NIST/EPA Gas-Phase Infrared Database](https://www.nist.gov/srd/nist-standard-reference-database-35). Due to license restrictions we were only able to open source the pretrained checkpoints on simulated data. To finetune the this checkpoint on experimental data follow the instructions below but ommit pretraining the models again.
 
 ### Data Downloading and Processing
 
