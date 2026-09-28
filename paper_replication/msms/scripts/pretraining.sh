@@ -19,7 +19,7 @@ python -m analytical_fm.cli.training \
     data_path=${data_folder} \
     data=msms/text_fingerprint \
     model=custom_model_align \
-    model.batch_size=16 \
+    model.batch_size=96 \
     model.lr=1e-4 \
     trainer.epochs=60 \
     trainer.save_checkpoints=every_5_epochs \

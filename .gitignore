@@ -128,3 +128,8 @@ paper_replication/phosphor/cache
 paper_replication/ir/data
 paper_replication/ir/runs
 paper_replication/ir/cache
+
+# Data, downloaded checkpoints and runs (see README)
+/data/
+/checkpoints/
+/runs/
