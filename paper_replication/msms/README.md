@@ -13,78 +13,79 @@ Tandem Mass Spectrometry is a cornerstone technique for identifying unknown smal
 
 ## Prerequisites
 
-To reproduce the results you need to install this repo and download and process the data used to train and evaluate the models. Installation of the codebase can be done by following the steps in the [ReadMe](../../README.md). To download the data, train and evaluate the models follow the steps below. 
-
-## Data Download and Processing
-
-We use three datasets to train the models: 
-- Simulated dataset, to pre-train the model, available on [Zenodo](https://zenodo.org/records/14770232)
-- MassSpecGym (here often referred to as MSG), for adaptation, availabe [here](https://huggingface.co/datasets/roman-bushuiev/MassSpecGym)
-- NPLIB1, for adaptation, can be downloaded from [here](https://bio.informatik.uni-jena.de/wp-content/uploads/2020/08/svm_training_data.zip) and processed using the notebook `MultimodalAnalytical/paper_replication/msms/data_preparation/preparation-nplib1.ipynb`
-
-We suggest to create a folder `data/` to store all the datasets.
-
-## Training the models
-All scripts are expected to be run from the directory `paper_replication/msms`. So, after downloading and installing the repo, change directory as shown below.
+Install the repository following the [main README](../../README.md). All commands below are run from `paper_replication/msms`:
 
 ```
 cd paper_replication/msms
 ```
 
-### From scratch
-Train a model from randomly initialized weights on experimental data. You can separately train the models on MassSpecGym dataset or NPLIB1 by running the following commands.
-```
-./scripts/train_from_scratch.sh -r runs/<experiment-name> -d data/MSG/
-./scripts/train_from_scratch.sh -r runs/<experiment-name> -d data/NPLIB1/
+## Data
 
--r: The folder in which the runs are saved
--d: The path to the training data
-```
+| Dataset | Use | Source | Processing notebook | Output |
+|---|---|---|---|---|
+| Simulated | pre-training | [Zenodo](https://zenodo.org/records/14770232) | `data_preparation/preprocessing-sim.ipynb` | `data/sim/` |
+| MassSpecGym (MSG) | adaptation / evaluation | [Hugging Face](https://huggingface.co/datasets/roman-bushuiev/MassSpecGym) | `data_preparation/preprocessing-msg.ipynb` | `data/MSG/` |
+| NPLIB1 | adaptation / evaluation | [here](https://bio.informatik.uni-jena.de/wp-content/uploads/2020/08/svm_training_data.zip) | `data_preparation/processing-nplib1.ipynb` | `data/NPLIB1/NPLIB1-Full/split/` |
 
-### Pre-training
-The pre-trainig is performed on the simulated data.
-```
-./scripts/pretraining.sh -r runs/<experiment-name> -d data/sim/
+The notebooks write to `data/` at the repository root, i.e. `../../data/` from `paper_replication/msms`. Each processed dataset is a parquet with the columns `formula`, `smiles`, `spectrum` (list of `[m/z, intensity]`, intensities scaled to 100) and `fingerprint` (128-bit Morgan, radius 2). MSG and NPLIB1 are stored as `train.parquet`, `val.parquet` and `test.parquet`; the NPLIB1 split files are in `data_preparation/nplib1-full_split/`.
 
--r: The folder in which the runs are saved
--d: The path to the training data
-```
+In the paper, the pre-training set for each benchmark excludes all molecules of that benchmark's test set (2D InChIKey matching).
 
-### Fine-tuning
-To finetune a pretrained model, you first have to run the pretraining step and then substitute below `<experiment-name>` with the name you used for the pre-training run. 
-If you want to train a different model, you can also change the path to model checkpoint and preprocessor in `scripts/finetuning.sh`.
-```
-./scripts/finetuning.sh -r runs/<experiment-name> -d data/MSG/
-./scripts/finetuning.sh -r runs/<experiment-name> -d data/NPLIB1/
+## Pre-trained checkpoints
 
--r: The folder in which the runs are saved
--d: The path to the training data
-```
-
-### Test-time tuning
-The settings in `scripts/tt.sh` are the ones to reproduce the results on NPLIB1. If you want to reproduce the results on MassSpecGym you have to modify the values according to the ones reported in the appendix of the paper.
-```
-./scripts/ttt.sh -r runs/<experiment-name> -d data/NPLIB1/
-
--r: The folder in which the runs are saved
--d: The path to the training data
-```
-
-### Evaluation
-You can either specify the path to the parquet file containing the data to be evaluated or the path to a folder. In the last case, the code will expect the folder to contain train, validation and test parquets, and will perform the evaluation only on the test parquet `test.parquet`.
-We suggest to save the evaluation inside the folder containing the run (and model) that you want to evaluate.
+The checkpoints of the paper are available on [Hugging Face](https://huggingface.co/laura-mismetti/ttt-msms) and [Zenodo](https://zenodo.org/records/22961942) (`msg.zip`, `nplib1.zip`). Both have the same layout:
 
 ```
-./scripts/eval.sh -r runs/<path-to-previous-run>/eval -d data/MSG/test.parquet
-./scripts/eval.sh -r runs/<path-to-previous-run>/eval -d data/NPLIB1/
-
--r: The folder in which the runs are saved
--d: The path to the data to be evaluated 
+msg/                           nplib1/
+├── preprocessor.pkl           ├── preprocessor.pkl
+├── pt/pt.ckpt                 ├── pt/pt.ckpt
+└── ttt-msg/ttt-msg.ckpt       └── ttt-nplib1/ttt-nplib1.ckpt
 ```
+
+`pt` is pre-trained on simulated spectra (test molecules of the benchmark removed), `ttt-*` is `pt` after test-time tuning on the benchmark. Each folder also contains the `config.yaml` used for training. Always use a checkpoint with the `preprocessor.pkl` of the same folder.
+
+Download:
+```
+huggingface-cli download laura-mismetti/ttt-msms --local-dir checkpoints
+# or: unzip msg.zip -d checkpoints && unzip nplib1.zip -d checkpoints
+```
+
+Evaluate a checkpoint on the test set, e.g. `ttt-nplib1`:
+```
+python -m analytical_fm.cli.predict \
+    working_dir=runs/checkpoints job_name=ttt-nplib1 \
+    data_path=../../data/NPLIB1/NPLIB1-Full/split/ splitting=given_splits \
+    data=msms/text_fingerprint model=custom_model_align \
+    model.model_checkpoint_path=checkpoints/nplib1/ttt-nplib1/ttt-nplib1.ckpt \
+    preprocessor_path=checkpoints/nplib1/preprocessor.pkl \
+    model.guided_generation=False molecules=True
+```
+To run test-time tuning from a released `pt` model, use the same `model.model_checkpoint_path` and `preprocessor_path` overrides with `analytical_fm.cli.training_ttt` (see `scripts/ttt.sh`).
+
+## Training pipeline
+
+All scripts take `-r runs/<experiment-name>` (run folder) and `-d <data path>`. Use the same `-r` for all steps of an experiment; every step writes to its own subfolder.
+
+| Step | Command | Output |
+|---|---|---|
+| Pre-training | `./scripts/pretraining.sh -r runs/<exp> -d ../../data/sim/` | `runs/<exp>/pt/` |
+| Fine-tuning (from `pt`) | `./scripts/finetuning.sh -r runs/<exp> -d ../../data/MSG/` | `runs/<exp>/ft/` |
+| Test-time tuning (from `pt`) | `./scripts/ttt.sh -r runs/<exp> -d ../../data/NPLIB1/NPLIB1-Full/split/` | `runs/<exp>/ttt/` |
+| From scratch (baseline) | `./scripts/train_from_scratch.sh -r runs/<exp> -d ../../data/MSG/` | `runs/<exp>/from-scratch/` |
+| Evaluation | `./scripts/eval.sh -r runs/<exp>/<pt\|ft\|ttt\|from-scratch> -d ../../data/MSG/` | `runs/<exp>/<step>/eval/` |
+
+Each step saves checkpoints in `version_0/checkpoints/`, and the predictions and Top-k metrics on the test set (`after_training-metrics_beam_*.json`). For evaluation, `-d` can be a folder with `train`/`val`/`test` parquets (only `test` is evaluated) or a single parquet file.
+
+`scripts/ttt.sh` contains the NPLIB1 settings. For MSG, use `activeft.n_clusters=500 activeft.update_embeddings=50 model.batch_size=64`.
+
+### Decoding options
+
+- `model.rejection_sampling`: `formula` (default; keep only valid candidates with the target formula), `invalid` (keep only valid SMILES) or `False`.
+- `model.guided_generation`: constrain beam search to the target formula. The paper results use `formula` rejection sampling without guided generation.
 
 ### Model w/o fingerprint alignment
 
-The given scripts already use the model with fingerprint alignment, however, it is possible to use the simpler model without fingerprint alignment by changing the following fields in the configuration as below.
+To use the simpler model without fingerprint alignment, set:
 
 ```
 model=custom_model
