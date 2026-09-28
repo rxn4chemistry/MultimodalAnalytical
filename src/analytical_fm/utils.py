@@ -52,34 +52,7 @@ def clean_sample(sample: str, canonicalise: bool) -> str:
 
     return sample
 
-def reject_sample(predictions: Dict[str, Any], molecules: bool = True):
-    RDLogger.DisableLog('rdApp.*')
-
-    n_beams = len(predictions["predictions"][0])
-    logger.info(f"Doing rejection sampling with n_beams: {n_beams}")
-    for i in range(len(predictions["predictions"])):
-        pred = []
-        for p in predictions["predictions"][i]:
-            sample = clean_sample(p, molecules)
-            try:
-                pred_mol = Chem.MolFromSmiles(sample)
-                pred_formula = rdMolDescriptors.CalcMolFormula(pred_mol)
-            except TypeError as e:
-                logger.error(e)
-                continue
-            
-            try:
-                target_mol = Chem.MolFromSmiles(predictions["targets"][i])
-                target_formula = rdMolDescriptors.CalcMolFormula(target_mol)
-            except TypeError as e:
-                logger.error(e)
-                continue
-
-            if pred_formula == target_formula:
-                pred.append(sample)
-
-        predictions["predictions"][i] = pred + ["null"]*(n_beams - len(pred))
-
+def _check_rejected_predictions(predictions: Dict[str, Any], n_beams: int):
     assert len(predictions["predictions"]) == len(predictions["targets"]), f"Predictions and targets do not match in size: {len(predictions['predictions'])} != {len(predictions['targets'])}"
 
     for i in range(len(predictions["predictions"])):
@@ -87,7 +60,76 @@ def reject_sample(predictions: Dict[str, Any], molecules: bool = True):
 
     logger.info(f"Num targets: {len(predictions['targets'])}")
     logger.info(f"Num predictions: {len(predictions['predictions'][0])}")
+
+def reject_invalid(predictions: Dict[str, Any], molecules: bool = True):
+    """Rejecting the predictions that are invalid."""
+    RDLogger.DisableLog('rdApp.*')
+
+    n_beams = len(predictions["predictions"][0])
+    logger.info(f"Doing rejection sampling (invalid) with n_beams: {n_beams}")
+    for i in range(len(predictions["predictions"])):
+        pred = []
+        for p in predictions["predictions"][i]:
+            sample = clean_sample(p, molecules)
+            if sample is None or Chem.MolFromSmiles(sample) is None:
+                continue
+            pred.append(sample)
+
+        predictions["predictions"][i] = pred + ["null"]*(n_beams - len(pred))
+
+    _check_rejected_predictions(predictions, n_beams)
     return predictions
+
+def reject_formula(predictions: Dict[str, Any], molecules: bool = True):
+    """Rejecting the predictions that are invalid and do not satisfy the chemical formula of the target."""
+    RDLogger.DisableLog('rdApp.*')
+
+    n_beams = len(predictions["predictions"][0])
+    logger.info(f"Doing rejection sampling (formula) with n_beams: {n_beams}")
+    for i in range(len(predictions["predictions"])):
+        # assuming targets are valid molecules
+        target_mol = Chem.MolFromSmiles(predictions["targets"][i])
+        target_formula = rdMolDescriptors.CalcMolFormula(target_mol)
+
+        pred = []
+        for p in predictions["predictions"][i]:
+            sample = clean_sample(p, molecules)
+            if sample is None:
+                continue
+            pred_mol = Chem.MolFromSmiles(sample)
+            if pred_mol is None:
+                continue
+
+            if rdMolDescriptors.CalcMolFormula(pred_mol) == target_formula:
+                pred.append(sample)
+
+        predictions["predictions"][i] = pred + ["null"]*(n_beams - len(pred))
+
+    _check_rejected_predictions(predictions, n_beams)
+    return predictions
+
+def reject_sample(predictions: Dict[str, Any], rejection_sampling: Any, molecules: bool = True):
+    """Apply the rejection sampling strategy set in the model config.
+
+    Args:
+        predictions: Predictions as returned by evaluate
+        rejection_sampling: False/None (no rejection), "invalid" or "formula". True is kept for
+            backwards compatibility and is treated as "formula".
+        molecules: Whether the predictions are molecules
+    Returns:
+        predictions with rejected samples replaced by "null" at the end of the beams
+    """
+    if rejection_sampling is True:
+        logger.warning("rejection_sampling: True is deprecated, use 'formula' or 'invalid'. Using 'formula'.")
+        rejection_sampling = "formula"
+
+    if not rejection_sampling:
+        return predictions
+    if rejection_sampling == "formula":
+        return reject_formula(predictions, molecules=molecules)
+    if rejection_sampling == "invalid":
+        return reject_invalid(predictions, molecules=molecules)
+    raise ValueError(f"rejection_sampling has to be False, 'invalid' or 'formula', not {rejection_sampling}.")
 
 def calc_sampling_metrics(samples: List[Any], targets: List[str], classes: List[Any] | None = None, molecules: bool = True, logging: bool = False) -> Dict[str, float]:
     """Calculate Top-N accuracies for a model

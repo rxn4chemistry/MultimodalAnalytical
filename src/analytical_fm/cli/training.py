@@ -187,8 +187,7 @@ def main(config: DictConfig):
                     predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
                     # Rejection sampling
-                    if rejection_sampling:
-                        predictions = reject_sample(predictions, molecules=config['molecules'])
+                    predictions = reject_sample(predictions, rejection_sampling, molecules=config['molecules'])
                     
                     metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=classes, molecules=config['molecules'], logging=True)
                     predictions_path, metrics_path = save_to_files(predictions, metrics, config, n_beams, "before_training-")
@@ -239,8 +238,7 @@ def main(config: DictConfig):
                 predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
                 # Rejection sampling
-                if rejection_sampling:
-                    predictions = reject_sample(predictions, molecules=config['molecules'])
+                predictions = reject_sample(predictions, rejection_sampling, molecules=config['molecules'])
                 
                 metrics = calc_sampling_metrics(predictions['predictions'], predictions['targets'], classes=classes, molecules=config['molecules'], logging=True)
                 predictions_path, metrics_path = save_to_files(predictions, metrics, config, n_beams, "after_training-")

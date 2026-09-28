@@ -37,4 +37,4 @@ align_config:
   loss_function: bce
 
 n_beams: null
-rejection_sampling: True
+rejection_sampling: formula # False, invalid or formula

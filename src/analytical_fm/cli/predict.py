@@ -177,8 +177,7 @@ def main(config: DictConfig):
             predictions = evaluate(predict_class, data_config, data_module, trainer, model, n_beams)
 
             # Rejection sampling
-            if rejection_sampling:
-                predictions = reject_sample(predictions, molecules=config['molecules'])
+            predictions = reject_sample(predictions, rejection_sampling, molecules=config['molecules'])
 
             predictions_path = save_to_files(predictions=predictions, metrics=None, config=config, n_beams=n_beams, name_file="after_training-")
             logger.info(f"Predictions saved to: {predictions_path}")

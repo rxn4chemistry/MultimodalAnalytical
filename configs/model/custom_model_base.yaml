@@ -28,4 +28,4 @@ max_position_embeddings: 1024
 
 align_config: null
 n_beams: 10
-rejection_sampling: False
+rejection_sampling: False # False, invalid or formula
