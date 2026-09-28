@@ -24,7 +24,7 @@ adam_beta2: 0.999
 model_checkpoint_path: null
 batch_size: 16
 cv_split: 0
-guided_generation: True
+guided_generation: False
 max_position_embeddings: 1024
 
 align_config:

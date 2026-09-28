@@ -34,7 +34,7 @@ All commands below are run from the repository root. Training and evaluation use
 
 The notebooks write to `data/` at the repository root. Each processed dataset is a parquet with the columns `formula`, `smiles`, `spectrum` (list of `[m/z, intensity]`, intensities scaled to 100) and `fingerprint` (128-bit Morgan, radius 2). MSG and NPLIB1 are stored as `train.parquet`, `val.parquet` and `test.parquet`; the NPLIB1 split files are in `paper_replication/msms/data_preparation/nplib1-full_split/`.
 
-In the paper, the pre-training set for each benchmark excludes all molecules of that benchmark's test set (2D InChIKey matching).
+For each benchmark, pre-training uses the simulated data without the molecules of that benchmark's test set (2D InChIKey matching): `preprocessing-sim.ipynb` writes them to `data/sim-wo-msg/` and `data/sim-wo-nplib1/` (run it after the MSG and NPLIB1 notebooks).
 
 ## Pre-trained checkpoints
 
@@ -63,7 +63,7 @@ python -m analytical_fm.cli.predict \
     data=msms/text_fingerprint model=custom_model_align \
     model.model_checkpoint_path=checkpoints/nplib1/ttt-nplib1/ttt-nplib1.ckpt \
     preprocessor_path=checkpoints/nplib1/preprocessor.pkl \
-    model.guided_generation=False molecules=True
+    model.rejection_sampling=formula model.guided_generation=False molecules=True
 ```
 To run test-time tuning from a released `pt` model, use the same `model.model_checkpoint_path` and `preprocessor_path` overrides with `analytical_fm.cli.training_ttt` (see `paper_replication/msms/scripts/ttt.sh`).
 
@@ -73,7 +73,7 @@ The scripts are in `paper_replication/msms/scripts/`. All scripts take `-r runs/
 
 | Step | Command | Output |
 |---|---|---|
-| Pre-training | `./paper_replication/msms/scripts/pretraining.sh -r runs/<exp> -d data/sim/` | `runs/<exp>/pt/` |
+| Pre-training | `./paper_replication/msms/scripts/pretraining.sh -r runs/<exp> -d data/sim-wo-msg/` (or `sim-wo-nplib1/`) | `runs/<exp>/pt/` |
 | Fine-tuning (from `pt`) | `./paper_replication/msms/scripts/finetuning.sh -r runs/<exp> -d data/MSG/` | `runs/<exp>/ft/` |
 | Test-time tuning (from `pt`) | `./paper_replication/msms/scripts/ttt.sh -r runs/<exp> -d data/NPLIB1/NPLIB1-Full/split/` | `runs/<exp>/ttt/` |
 | From scratch (baseline) | `./paper_replication/msms/scripts/train_from_scratch.sh -r runs/<exp> -d data/MSG/` | `runs/<exp>/from-scratch/` |
@@ -86,7 +86,7 @@ Each step saves checkpoints in `version_0/checkpoints/`, and the predictions and
 ### Decoding options
 
 - `model.rejection_sampling`: `formula` (default; keep only valid candidates with the target formula), `invalid` (keep only valid SMILES) or `False`.
-- `model.guided_generation`: constrain beam search to the target formula. The paper results use `formula` rejection sampling without guided generation.
+- `model.guided_generation`: constrain beam search to the target formula (default `False`, as in the paper).
 
 ### Model w/o fingerprint alignment
 

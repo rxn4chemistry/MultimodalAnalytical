@@ -18,8 +18,8 @@ python -m analytical_fm.cli.training \
     data_path=${data_folder} \
     data=msms/text_fingerprint \
     model=custom_model_align \
-    model.model_checkpoint_path=${run_folder}/version_0/checkpoints/last.ckpt \
-    preprocessor_path=${run_folder}/preprocessor.pkl \
+    model.model_checkpoint_path=${run_folder}/pt/version_0/checkpoints/last.ckpt \
+    preprocessor_path=${run_folder}/pt/preprocessor.pkl \
     model.batch_size=32 \
     model.lr=5e-5 \
     trainer.epochs=60 \

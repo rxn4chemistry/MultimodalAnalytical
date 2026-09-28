@@ -1,4 +1,6 @@
 import logging
+import pickle
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -13,6 +15,18 @@ from ..configuration import DEFAULT_SETTINGS
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+class _PreprocessorUnpickler(pickle.Unpickler):
+    """Maps the old package name (mmbart) to analytical_fm, e.g. for the released preprocessor.pkl files."""
+    def find_class(self, module: str, name: str) -> Any:
+        if module == "mmbart" or module.startswith("mmbart."):
+            module = "analytical_fm" + module[len("mmbart"):]
+        return super().find_class(module, name)
+
+def read_preprocessors(path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Load (data_config, preprocessors) saved in a preprocessor.pkl file."""
+    with Path(path).open("rb") as f:
+        return _PreprocessorUnpickler(f).load()
 
 class IterableDatasetWithLength(IterableDataset):
     def __init__(self, generator_fn: Callable, length: int, generator_args: Optional[Dict]= None, split: str = "train", features: Optional[List[str]] = None):

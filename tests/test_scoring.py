@@ -1,11 +1,5 @@
 """Some module tests."""
 
-__copyright__ = """
-LICENSED INTERNAL CODE. PROPERTY OF IBM.
-IBM Research Licensed Internal Code
-(C) Copyright IBM Corp. 2024
-ALL RIGHTS RESERVED
-"""
 from math import isclose
 from pathlib import Path
 

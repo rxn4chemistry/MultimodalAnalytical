@@ -21,7 +21,9 @@ python -m analytical_fm.cli.training \
     model=custom_model_align \
     model.batch_size=96 \
     model.lr=1e-4 \
-    trainer.epochs=60 \
+    model.align_config.loss_lambda=0.1 \
+    model.rejection_sampling=False \
+    trainer.epochs=100 \
     trainer.save_checkpoints=every_5_epochs \
     finetuning=False \
     molecules=True

@@ -1,11 +1,5 @@
 """Run the prediction pipeline."""
 
-__copyright__ = """
-LICENSED INTERNAL CODE. PROPERTY OF IBM.
-IBM Research Licensed Internal Code
-(C) Copyright IBM Corp. 2024
-ALL RIGHTS RESERVED
-"""
 import contextlib
 import logging
 import os
@@ -17,14 +11,12 @@ from typing import Any, Dict, TextIO, cast
 
 import hydra
 import numpy as np
-import pandas as pd
 import torch
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from utils import StreamToLogger  # type: ignore
 
 from analytical_fm.configuration import DEFAULT_SETTINGS
-from analytical_fm.data.data_utils import load_preprocessors
+from analytical_fm.data.data_utils import load_preprocessors, read_preprocessors
 from analytical_fm.data.datamodules import MultiModalDataModule
 from analytical_fm.data.datasets import (  # noqa: F401
     build_dataset_multimodal,
@@ -39,6 +31,8 @@ from analytical_fm.utils import (
     save_to_files,
     seed_everything,
 )
+
+from .utils import StreamToLogger  # type: ignore
 
 
 @hydra.main(version_base=None, config_path=DEFAULT_SETTINGS.configs_path, config_name="config_predict")
@@ -118,7 +112,7 @@ def main(config: DictConfig):
 
             if preprocessor_path.is_file():
                 logging.info(f"Loading existing preprocessor from: {str(preprocessor_path)}")
-                data_config, preprocessors = pd.read_pickle(preprocessor_path)
+                data_config, preprocessors = read_preprocessors(preprocessor_path)
             else:
                 logging.info(f"No existing preprocessor found at: {str(preprocessor_path)}")
                 data_config, preprocessors = load_preprocessors(dataset["train"], data_config)
